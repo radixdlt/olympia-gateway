@@ -1,0 +1,33 @@
+name: dotnet package
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dotnet-version: ['6.0.x']
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v1.8.2
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+          include-prerelease: true
+      - name: Install OpenAPI generation dependencies
+        run: sudo sh -c './.github/scripts/install-deps.sh'
+      - name: Generate OpenAPI
+        run: sudo sh -c './generation/regenerate-transactions-client.sh && cp -R ./generation/packed ./generated'
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      - name: Test
+        run: dotnet test --no-restore --verbosity normal
