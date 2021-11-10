@@ -1,0 +1,26 @@
+name: sonarcloud
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: SonarScanner for .NET 6
+        uses: highbyte/sonarscan-dotnet@v2.1.2
+        with:
+          sonarProjectKey: radixdlt_radixdlt-network-gateway
+          sonarProjectName: radixdlt-network-gateway
+          sonarOrganization: radixdlt-github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
