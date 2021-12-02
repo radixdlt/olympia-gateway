@@ -50,7 +50,7 @@ jobs:
           registry: eu.gcr.io
           username: _json_key
           password: ${{ secrets.GCR_EU_DEV_JSON_KEY }}
-      - name: Setup Tags for docker image
+      - name: Setup DATA_AGGREGATOR_TAGS for docker image
         run: |
             docker_tag_with_branch(){
                GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/\//-/g')
@@ -60,15 +60,18 @@ jobs:
 
             GH_EVENT_NAME="${{ github.event_name }}"
             GH_ACTION_NAME="${{ github.event.action}}"
-            DOCKER_REPO="eu.gcr.io/dev-container-repo/ng-data-aggregator"
+            DOCKER_REPO_DATA_AGGREGATOR="eu.gcr.io/dev-container-repo/ng-data-aggregator"
+            DOCKER_REPO_GATEWAY_API="eu.gcr.io/dev-container-repo/ng-gateway-api"
 
             case "${GH_EVENT_NAME}" in
                 release)
-                    TAGS="${DOCKER_REPO}:${{ github.event.release.tag_name }}"
+                    DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${{ github.event.release.tag_name }}"
+                    GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${{ github.event.release.tag_name }}"
                 ;;
                 pull_request | push)
                     docker_tag_with_branch
-                    TAGS="${DOCKER_REPO}:${DOCKER_TAG}"
+                    DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${DOCKER_TAG}"
+                    GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${DOCKER_TAG}"
                 ;;
                 *)
                     echo "${GH_EVENT_NAME} not implemented yet"
@@ -76,15 +79,17 @@ jobs:
                 ;;
             esac
 
-            echo "$TAGS"
-            echo "TAGS=$TAGS" >> $GITHUB_ENV
+            echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
+            echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
+            echo "DATA_AGGREGATOR_TAGS=$DATA_AGGREGATOR_TAGS" >> $GITHUB_ENV
+            echo "GATEWAY_API_TAGS=$GATEWAY_API_TAGS" >> $GITHUB_ENV
              
       - name: Docker build and push DataAggregator
         uses: docker/build-push-action@v2
         with:
           file: ./src/DataAggregator/Dockerfile
-          tags: |
-            ${{ env.TAGS }}
+          DATA_AGGREGATOR_TAGS: |
+            ${{ env.DATA_AGGREGATOR_TAGS }}
           push: true
           context: ./
              
@@ -92,8 +97,8 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           file: ./src/GatewayAPI/Dockerfile
-          tags: |
-            ${{ env.TAGS }}
+          DATA_AGGREGATOR_TAGS: |
+            ${{ env.GATEWAY_API_TAGS }}
           push: true
           context: ./
 
