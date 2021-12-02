@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - do-239-deploy-network-gateway
   pull_request:
     branches:
       - develop
