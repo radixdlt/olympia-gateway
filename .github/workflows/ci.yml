@@ -49,7 +49,7 @@ jobs:
           registry: eu.gcr.io
           username: _json_key
           password: ${{ secrets.GCR_EU_DEV_JSON_KEY }}
-      - name: Setup DATA_AGGREGATOR_TAGS for docker image
+      - name: Setup tags for docker image
         run: |
             docker_tag_with_branch(){
                GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/\//-/g')
