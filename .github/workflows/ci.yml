@@ -3,10 +3,11 @@ name: dotnet package
 on:
   push:
     branches:
-      - main
+      - develop
+      - do-239-deploy-network-gateway
   pull_request:
     branches:
-      - main
+      - develop
   release:
     types: [ published ]
 
@@ -78,7 +79,7 @@ jobs:
             echo "$TAGS"
             echo "TAGS=$TAGS" >> $GITHUB_ENV
              
-      - name: Docker build and push
+      - name: Docker build and push DataAggregator
         uses: docker/build-push-action@v2
         with:
           file: ./src/DataAggregator/Dockerfile
@@ -86,6 +87,14 @@ jobs:
             ${{ env.TAGS }}
           push: true
           context: ./
-
+             
+      - name: Docker build and push Gateway API
+        uses: docker/build-push-action@v2
+        with:
+          file: ./src/GatewayAPI/Dockerfile
+          tags: |
+            ${{ env.TAGS }}
+          push: true
+          context: ./
 
 
