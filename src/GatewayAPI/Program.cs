@@ -70,6 +70,7 @@ using GatewayAPI.ApiSurface;
 using GatewayAPI.Database;
 using GatewayAPI.DependencyInjection;
 using GatewayAPI.Services;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 var host = builder.Host;
@@ -108,6 +109,14 @@ services.AddEndpointsApiExplorer();
 services.AddSwaggerGen();
 services.AddSwaggerGenNewtonsoftSupport();
 
+services.AddCors(options =>
+{
+    options.AddDefaultPolicy(corsPolicyBuilder =>
+    {
+        corsPolicyBuilder.AllowAnyOrigin().AllowAnyMethod();
+    });
+});
+
 host.ConfigureLogging((hostBuilderContext, loggingBuilder) =>
 {
     if (hostBuilderContext.HostingEnvironment.IsDevelopment())
@@ -141,6 +150,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+app.UseCors();
 
 await EnsureCanConnectToDatabase(app);
 await LoadNetworkConfigurationFromDb(app);
