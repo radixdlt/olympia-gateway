@@ -12,7 +12,7 @@ cd "$SCRIPT_DIR"
 # VARIABLES #
 #############
 
-packageVersion='0.1.8' # This needs bumping every time
+packageVersion='0.1.20' # This needs bumping every time
 packageName='RadixGatewayApi.Generated'
 outputDirectory="../generated-dependencies"
 packageVersionLocation="../Directory.Packages.props"
@@ -56,6 +56,15 @@ openapi-generator generate \
     -o "$dummyApiDirectory" \
     --library httpclient \
     --additional-properties=packageName=$packageName,targetFramework=net5.0,packageVersion=$packageVersion,optionalEmitDefaultValues=true
+
+# Fix various issues in the generated code
+for f in `find $dummyApiDirectory -name '*.cs'`; do
+  if (grep -q "in BaseValidate(" $f) && [[ $f != *"/obj/"* ]]; then
+    awk '{sub(/in BaseValidate/,"in base.BaseValidate"); print}' $f > $f.out
+    mv $f.out $f
+    echo "$f - Performed BaseValidate fix to source code"
+  fi
+done
 
 cd "$dummyApiDirectory"
 dotnet pack

@@ -20,7 +20,7 @@
 
       <!-- Generated / Local -->
       <PackageVersion Include="RadixCoreApi.GeneratedClient" Version="0.9.3" />
-      <PackageVersion Include="RadixGatewayApi.Generated" Version="0.1.8" />
+      <PackageVersion Include="RadixGatewayApi.Generated" Version="0.1.20" />
 
     <!-- NON-PRODUCTION DEPENDENCIES -->
 
