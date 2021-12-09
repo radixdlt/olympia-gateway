@@ -5,8 +5,8 @@ on:
     branches:
       - develop
   pull_request:
-    branches:
-      - do-248-subnamespace-anchor
+    # branches:
+    #   - develop
   release:
     types: [ published ]
 
