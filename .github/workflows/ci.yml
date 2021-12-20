@@ -46,7 +46,14 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'release'
         with:
           fetch-depth: 0
+      - name: Login to Dockerhub (release)
+        uses: docker/login-action@v1
+        if: "${{ github.event_name == 'release' }}"
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: Login to GCR
+        if: "${{ github.event_name != 'release' }}"
         uses: docker/login-action@v1
         with:
           registry: eu.gcr.io
@@ -68,11 +75,14 @@ jobs:
 
             case "${GH_EVENT_NAME}" in
                 release)
+                    DOCKER_REPO_DATA_AGGREGATOR="radixdlt/ng-data-aggregator"
+                    DOCKER_REPO_GATEWAY_API="radixdlt/ng-gateway-api"
                     DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${{ github.event.release.tag_name }}"
                     GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${{ github.event.release.tag_name }}"
                 ;;
                 pull_request | push)
                     docker_tag_with_branch
+
                     DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${DOCKER_TAG}"
                     GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${DOCKER_TAG}"
                 ;;
