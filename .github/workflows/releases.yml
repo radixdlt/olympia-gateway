@@ -20,7 +20,7 @@ jobs:
           include-prerelease: true
       - name: Build linux binaries
         run: |
-          cd src/DataAggreagator
+          cd src/DataAggregator
           mkdir output
           dotnet publish --runtime linux-x64 --configuration Release --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false --output ./output
           cd ../GatewayAPI
@@ -28,7 +28,7 @@ jobs:
           dotnet publish --runtime linux-x64 --configuration Release --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false --output ./output
           cd ../..          
           
-          zip data-aggregator.zip src/DataAggreagator/output/
+          zip data-aggregator.zip src/DataAggregator/output/
           zip gateway-api.zip src/GatewayAPI/output/
           ls -l 
       - name: Upload DataAggreagtor zip
