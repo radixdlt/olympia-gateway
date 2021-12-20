@@ -1,0 +1,38 @@
+name: build-publish-dotnet-binary
+on:
+  push:
+    branches:
+      - do-282-release-pipeline
+  release:
+    types: [published]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dotnet-version: ['6.0.x']
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v1.8.2
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+          include-prerelease: true
+      - name: Build
+        run: |
+          mkdir output
+          dotnet publish --runtime linux-x64 --configuration Release --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false --output ./output
+          ls -l output
+          zip network-gateway-binaries.zip output/
+          ls -l 
+      - name: Upload distribution zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./network-gateway-binaries.zip
+          asset_name: radixdlt-dist-${{ steps.get_version.outputs.radixdlt_version }}.zip
+          asset_content_type: application/zip
+
+  
