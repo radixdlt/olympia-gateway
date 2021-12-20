@@ -18,21 +18,37 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
           include-prerelease: true
-      - name: Build
+      - name: Build linux binaries
         run: |
+          cd src/DataAggreagator
           mkdir output
           dotnet publish --runtime linux-x64 --configuration Release --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false --output ./output
-          ls -l output
-          zip network-gateway-binaries.zip output/
+          cd ../GatewayAPI
+          mkdir output
+          dotnet publish --runtime linux-x64 --configuration Release --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false --output ./output
+          cd ../..          
+          
+          zip data-aggregator.zip src/DataAggreagator/output/
+          zip gateway-api.zip src/GatewayAPI/output/
           ls -l 
-      - name: Upload distribution zip
+      - name: Upload DataAggreagtor zip
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ./network-gateway-binaries.zip
-          asset_name: radixdlt-dist-${{ steps.get_version.outputs.radixdlt_version }}.zip
+          asset_path: ./data-aggregator.zip
+          asset_name: data-aggregator-${{ steps.get_version.outputs.radixdlt_version }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload GatewayAPI zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./gateway-api.zip
+          asset_name: gateway-api-${{ steps.get_version.outputs.radixdlt_version }}.zip
           asset_content_type: application/zip
 
   
