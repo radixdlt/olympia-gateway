@@ -1,0 +1,25 @@
+name: Delete Ephemeral K8S PR sub-namespace
+on:
+  pull_request:
+    types:
+    - closed
+    branches:
+    - develop
+jobs:
+  delete-ephemeral-namespaces:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.NG_PR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.NG_PR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Delete PR subnamespace
+        uses: actions-hub/kubectl@master
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+          PR_NUMBER: ${{ github.event.number }}
+        with:
+          args: delete subns ng-pr-${PR_NUMBER} -n ng-ci-pr
