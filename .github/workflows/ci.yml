@@ -158,4 +158,27 @@ jobs:
                     "data_aggregator_image_tag": "${{ needs.publish-docker.outputs.data-aggregator-tag }}",
                     "gateway_api_image_tag": "${{ needs.publish-docker.outputs.gateway-api-tag }}"
                 }
+            }'
+ 
+  dispatch-pr-hns-deletion-events:
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR HSN
+        run: |
+          pull_number=${{ github.event.number }}
+          echo "NAMESPACE=ng-pr-$pull_number" >> $GITHUB_ENV
+          echo "EVENT_TYPE=pr_hsn" >> $GITHUB_ENV
+
+      - name: Trigger pr deletion event ${{ github.ref }}
+        run: |
+          curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-iac/dispatches' \
+            --header 'Accept: application/vnd.github.v3+json' \
+            --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
+            --header 'Content-Type: application/json' \
+            --data-raw '{
+                "event_type": "${{env.EVENT_TYPE}}",
+                "client_payload": {
+                    "hns_pr_sub_namespace": "${{env.NAMESPACE}}"
+                }
             }'  
