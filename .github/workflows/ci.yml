@@ -145,12 +145,6 @@ jobs:
                     DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${{ github.event.release.tag_name }}"
                     GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${{ github.event.release.tag_name }}"
                 ;;
-                pull_request | push)
-                    docker_tag_with_branch
-
-                    DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${DOCKER_TAG}"
-                    GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${DOCKER_TAG}"
-                ;;
                 *)
                     echo "${GH_EVENT_NAME} not implemented yet"
                     exit 1
@@ -181,6 +175,7 @@ jobs:
           push: true
           context: ./
 
+# TODO: Only radixdlt members can trigger these events
   dispatch-pr-deployment-events:
     if: "${{ github.event_name == 'pull_request' }}"
     runs-on: ubuntu-latest
@@ -193,32 +188,20 @@ jobs:
           echo "NAMESPACE=pr-$pull_number" >> $GITHUB_ENV
           echo "EVENT_TYPE=ng_pr" >> $GITHUB_ENV
 
-      - name: Check if the user belongs to radixdlt org
-        id: is_radixdlt_member
-        uses: jamessingleton/is-organization-member@1.0.0
-        with:
-          organization: radixdlt
-          username: ${{ github.actor }}
-          token: ${{ secrets.RADIX_READ_ONLY_GITHUB_MEMBERSHIP_TOKEN }}
-
       - name: Trigger pull request deployment event ${{ github.ref }}
-        # if: "${{ steps.is_radixdlt_member.outputs.result == true }}"
         run: |
-          result=${{ steps.is_radixdlt_member.outputs.result }}
-          if [ $result == true ]; then
-            curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-iac/dispatches' \
-              --header 'Accept: application/vnd.github.v3+json' \
-              --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
-              --header 'Content-Type: application/json' \
-              --data-raw '{
-                  "event_type": "${{env.EVENT_TYPE}}",
-                  "client_payload": {
-                      "namespace_postfix": "${{env.NAMESPACE}}",
-                      "data_aggregator_image_tag": "${{ needs.publish-docker-pr.outputs.data-aggregator-tag }}",
-                      "gateway_api_image_tag": "${{ needs.publish-docker-pr.outputs.gateway-api-tag }}"
-                  }
-              }'
-          fi
+          curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/${{secrets.DISPATCH_REPO}}/dispatches' \
+            --header 'Accept: application/vnd.github.v3+json' \
+            --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
+            --header 'Content-Type: application/json' \
+            --data-raw '{
+                "event_type": "${{env.EVENT_TYPE}}",
+                "client_payload": {
+                    "namespace_postfix": "${{env.NAMESPACE}}",
+                    "data_aggregator_image_tag": "${{ needs.publish-docker-pr.outputs.data-aggregator-tag }}",
+                    "gateway_api_image_tag": "${{ needs.publish-docker-pr.outputs.gateway-api-tag }}"
+                }
+            }'
     
   dispatch-deployment-events:
     runs-on: ubuntu-latest
@@ -232,12 +215,6 @@ jobs:
                     echo "NAMESPACE=stokenet" >> $GITHUB_ENV
                     echo "EVENT_TYPE=ng_stokenet" >> $GITHUB_ENV
                 ;;
-                pull_request)
-                    pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-                    echo "NAMESPACE=pr-$pull_number" >> $GITHUB_ENV
-                    echo "EVENT_TYPE=ng_pr" >> $GITHUB_ENV
-
-                ;;
                 push)
                     
                     echo "NAMESPACE=sandpitnet" >> $GITHUB_ENV
@@ -248,9 +225,9 @@ jobs:
                     exit 1
                 ;;
             esac
-      - name: Trigger pull request deployment event ${{ github.ref }}
+      - name: Trigger deployment event ${{ github.ref }}
         run: |
-          curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-iac/dispatches' \
+          curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/${{secrets.DISPATCH_REPO}}/dispatches' \
             --header 'Accept: application/vnd.github.v3+json' \
             --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
             --header 'Content-Type: application/json' \
@@ -264,7 +241,7 @@ jobs:
             }'
  
   dispatch-pr-hns-deletion-events:
-    if: ${{ github.event.pull_request.merged == true }}
+   #if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Get PR HSN
@@ -273,17 +250,9 @@ jobs:
           echo "NAMESPACE=ng-pr-$pull_number" >> $GITHUB_ENV
           echo "EVENT_TYPE=pr_hsn" >> $GITHUB_ENV
 
-      # - name: Check if the user belongs to radixdlt org
-      #   id: is_radixdlt_member
-      #   uses: jamessingleton/is-organization-member@v1
-      #   with:
-      #     organization: radixdlt
-      #     username: ${{ github.actor }}
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Trigger pr deletion event ${{ github.ref }}
         run: |
-          curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-iac/dispatches' \
+          curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/${{secrets.DISPATCH_REPO}}/dispatches' \
             --header 'Accept: application/vnd.github.v3+json' \
             --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
             --header 'Content-Type: application/json' \
@@ -292,4 +261,4 @@ jobs:
                 "client_payload": {
                     "hns_pr_sub_namespace": "${{env.NAMESPACE}}"
                 }
-            }'  
+            }'
