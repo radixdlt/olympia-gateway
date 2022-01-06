@@ -202,7 +202,7 @@ jobs:
           token: ${{ secrets.RADIX_READ_ONLY_GITHUB_MEMBERSHIP_TOKEN }}
 
       - name: Trigger pull request deployment event ${{ github.ref }}
-        if: steps.is_radixdlt_member.outputs.result == true
+        if: "${{ steps.is_radixdlt_member.outputs.result == true }}"
         run: |
           curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-iac/dispatches' \
             --header 'Accept: application/vnd.github.v3+json' \
