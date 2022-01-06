@@ -94,6 +94,7 @@ jobs:
           context: ./
 ##
   publish-docker:
+    if: "${{ github.event_name != 'pull_request' }}"
     runs-on: ubuntu-latest
     environment: release
     outputs:  
