@@ -202,20 +202,23 @@ jobs:
           token: ${{ secrets.RADIX_READ_ONLY_GITHUB_MEMBERSHIP_TOKEN }}
 
       - name: Trigger pull request deployment event ${{ github.ref }}
-        if: "${{ steps.is_radixdlt_member.outputs.result == true }}"
+        # if: "${{ steps.is_radixdlt_member.outputs.result == true }}"
         run: |
-          curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-iac/dispatches' \
-            --header 'Accept: application/vnd.github.v3+json' \
-            --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
-            --header 'Content-Type: application/json' \
-            --data-raw '{
-                "event_type": "${{env.EVENT_TYPE}}",
-                "client_payload": {
-                    "namespace_postfix": "${{env.NAMESPACE}}",
-                    "data_aggregator_image_tag": "${{ needs.publish-docker-pr.outputs.data-aggregator-tag }}",
-                    "gateway_api_image_tag": "${{ needs.publish-docker-pr.outputs.gateway-api-tag }}"
-                }
-            }'
+          result=${{ steps.is_radixdlt_member.outputs.result }}
+          if [ $result == true ]; then
+            curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-iac/dispatches' \
+              --header 'Accept: application/vnd.github.v3+json' \
+              --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
+              --header 'Content-Type: application/json' \
+              --data-raw '{
+                  "event_type": "${{env.EVENT_TYPE}}",
+                  "client_payload": {
+                      "namespace_postfix": "${{env.NAMESPACE}}",
+                      "data_aggregator_image_tag": "${{ needs.publish-docker-pr.outputs.data-aggregator-tag }}",
+                      "gateway_api_image_tag": "${{ needs.publish-docker-pr.outputs.gateway-api-tag }}"
+                  }
+              }'
+          fi
     
   dispatch-deployment-events:
     runs-on: ubuntu-latest
