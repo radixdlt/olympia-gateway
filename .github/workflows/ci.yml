@@ -29,6 +29,70 @@ jobs:
         run: dotnet build --configuration Release --no-restore
       - name: Test
         run: dotnet test --no-restore --verbosity normal
+###
+  publish-docker-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      data-aggregator-tag: ${{ steps.setup_tags.outputs.data-aggregator-tag}}
+      gateway-api-tag: ${{ steps.setup_tags.outputs.gateway-api-tag}}
+    steps:
+      - name: Dump context
+        uses: crazy-max/ghaction-dump-context@v1
+      - uses: actions/checkout@v2
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/checkout@v2
+        if: github.event_name == 'push' || github.event_name == 'release'
+        with:
+          fetch-depth: 0
+      - name: Login to GCR
+        if: "${{ github.event_name == 'pull_request' }}"
+        uses: docker/login-action@v1
+        with:
+          registry: eu.gcr.io
+          username: _json_key
+          password: ${{ secrets.GCR_EU_DEV_JSON_KEY }}
+      - name: Setup tags for docker image
+        id: setup_tags
+        run: |
+            GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/\//-/g')
+            GIT_COMMIT=$(git log -1 --format=%h )
+            DOCKER_TAG=${GIT_BRANCH}-${GIT_COMMIT}
+
+            GH_EVENT_NAME="${{ github.event_name }}"
+            GH_ACTION_NAME="${{ github.event.action}}"
+            DOCKER_REPO_DATA_AGGREGATOR="eu.gcr.io/dev-container-repo/ng-data-aggregator"
+            DOCKER_REPO_GATEWAY_API="eu.gcr.io/dev-container-repo/ng-gateway-api"
+
+            DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${DOCKER_TAG}"
+            GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${DOCKER_TAG}"
+
+            echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
+            echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
+            echo "DATA_AGGREGATOR_TAGS=$DATA_AGGREGATOR_TAGS" >> $GITHUB_ENV
+            echo "GATEWAY_API_TAGS=$GATEWAY_API_TAGS" >> $GITHUB_ENV
+            echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
+            echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
+      - name: Docker build and push DataAggregator
+        uses: docker/build-push-action@v2
+        with:
+          file: ./src/DataAggregator/Dockerfile
+          TAGS: |
+            ${{ env.DATA_AGGREGATOR_TAGS }}
+          push: true
+          context: ./
+             
+      - name: Docker build and push Gateway API
+        uses: docker/build-push-action@v2
+        with:
+          file: ./src/GatewayAPI/Dockerfile
+          TAGS: |
+            ${{ env.GATEWAY_API_TAGS }}
+          push: true
+          context: ./
+##
   publish-docker:
     runs-on: ubuntu-latest
     environment: release
@@ -169,6 +233,14 @@ jobs:
           pull_number=${{ github.event.number }}
           echo "NAMESPACE=ng-pr-$pull_number" >> $GITHUB_ENV
           echo "EVENT_TYPE=pr_hsn" >> $GITHUB_ENV
+
+      # - name: Check if the user belongs to radixdlt org
+      #   id: is_radixdlt_member
+      #   uses: jamessingleton/is-organization-member@v1
+      #   with:
+      #     organization: radixdlt
+      #     username: ${{ github.actor }}
+      #     token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trigger pr deletion event ${{ github.ref }}
         run: |
