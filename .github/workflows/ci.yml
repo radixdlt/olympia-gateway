@@ -195,7 +195,7 @@ jobs:
 
       - name: Check if the user belongs to radixdlt org
         id: is_radixdlt_member
-        uses: jamessingleton/is-organization-member@v1
+        uses: jamessingleton/is-organization-member@1.0.0
         with:
           organization: radixdlt
           username: ${{ github.actor }}
