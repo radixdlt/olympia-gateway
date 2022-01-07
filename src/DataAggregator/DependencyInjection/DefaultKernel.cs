@@ -63,6 +63,7 @@
  */
 
 using Common.CoreCommunications;
+using Common.Extensions;
 using DataAggregator.Configuration;
 using DataAggregator.GlobalServices;
 using DataAggregator.GlobalWorkers;
@@ -126,7 +127,7 @@ public class DefaultKernel
             // https://www.npgsql.org/efcore/index.html
             options.UseNpgsql(
                 hostContext.Configuration.GetConnectionString("AggregatorDbContext"),
-                o => o.UseNodaTime()
+                o => o.NonBrokenUseNodaTime()
             );
         });
     }

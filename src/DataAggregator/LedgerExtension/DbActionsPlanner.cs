@@ -85,19 +85,30 @@ public record ActionsPlannerReport(
 );
 
 /// <summary>
-/// Batches actions to the database.
+/// When committing a ledger extension to the database, to keep this performant when doing a full sync, we need to
+/// load dependencies for these transactions, and commit and DB ledger updates in batches.
 ///
-/// First, for each transaction in the batch, the TransactionContentProcessor goes through the transaction contents,
-/// and marks the actions to perform on this class.
+/// This class forms the key to this batch processing.
 ///
-/// The Actions Planner then proceeds across a few key phases:
+/// First, for each transaction in the batch, a TransactionContentProcessor is created, which goes through the
+/// transaction contents, and interacts with this class, in particular, it:
+/// * Marks certain dependencies to be loaded in the dependency loading phase (and returns lookups which can be used
+///   in the process actions phase for these dependencies)
+/// * Adds deferred actions this class should be performed in the process actions phase.
+///
+/// The Actions Planner ProcessAllChanges() method then proceeds across a couple of key phases:
 ///
 /// > Phase 1 - (Async) Loads dependencies
-/// Referenced items on ledger (eg substates) and previous history values are loaded in in batch to the local context.
+/// Referenced items on ledger (eg substates) and previous history values are loaded in batch into the DbContext.
+/// These values are also loaded into local Dictionaries in this class, to act as local indexes - as reading off
+/// of DbSet.Local is too slow.
 ///
 /// > Phase 2 - Process Actions
-/// The transaction contents are processed in turn, adding or mutating things, and running suitable assertions.
+/// The actions from the TransactionContentProcessor are processed in turn.
 /// At this stage, the actions can make calls to any of the dependencies which were looked up earlier.
+/// These actions add or mutate entities on the DbContext, and run suitable assertions on the ledger state.
+/// The new items are added to the DbContext, and also to any local indexes, for use in later operations /
+/// operation groups / transactions in the batch.
 ///
 /// Not thread-safe - as per the dbContext it wraps.
 /// </summary>

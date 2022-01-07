@@ -63,6 +63,7 @@
  */
 
 using Common.CoreCommunications;
+using Common.Extensions;
 using GatewayAPI.ApiSurface;
 using GatewayAPI.Configuration;
 using GatewayAPI.CoreCommunications;
@@ -136,7 +137,7 @@ public class DefaultKernel
             // https://www.npgsql.org/efcore/index.html
             options.UseNpgsql(
                 hostContext.Configuration.GetConnectionString("ReadOnlyDbContext"),
-                o => o.UseNodaTime()
+                o => o.NonBrokenUseNodaTime()
             );
         });
     }
@@ -148,7 +149,7 @@ public class DefaultKernel
             // https://www.npgsql.org/efcore/index.html
             options.UseNpgsql(
                 hostContext.Configuration.GetConnectionString("ReadWriteDbContext"),
-                o => o.UseNodaTime()
+                o => o.NonBrokenUseNodaTime()
             );
         });
     }

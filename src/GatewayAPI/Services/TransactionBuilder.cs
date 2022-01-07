@@ -163,7 +163,8 @@ public class TransactionBuilder
         Gateway.Action action,
         ValidatedAccountAddress account,
         ValidatedTokenAmount tokenAmount,
-        Func<NotEnoughError, Exception> createNotEnoughException)
+        Func<NotEnoughError, Exception> createNotEnoughException
+    )
     {
         if (tokenAmount.Amount.IsNegative())
         {
@@ -212,11 +213,6 @@ public class TransactionBuilder
         var toAccount = _validations.ExtractValidAccountAddress(action.ToAccount);
         var tokenAmount = _validations.ExtractValidPositiveTokenAmount(action.Amount);
 
-        if (fromAccount.Address == toAccount.Address)
-        {
-            throw new InvalidActionException(action, "Contains a transfer from/to the same address");
-        }
-
         ValidateAccountDebit(action, fromAccount, tokenAmount, error => new NotEnoughTokensForTransferException(error.RequestedAmount, error.AvailableAmount));
         ValidateAccountCredit(toAccount, tokenAmount);
 
@@ -251,7 +247,10 @@ public class TransactionBuilder
             throw new InvalidActionException(action, "The fee payer can't burn from an account that's not their own");
         }
 
-        ValidateAccountDebit(action, fromAccount, tokenAmount, error => new InvalidActionException(action, $"Cannot burn {error.RequestedAmount.AsStringWithUnits()} as only have ${error.AvailableAmount.AsStringWithUnits()} remaining"));
+        ValidateAccountDebit(action, fromAccount, tokenAmount, error => new InvalidActionException(
+            action,
+            $"Cannot burn {error.RequestedAmount.AsStringWithUnits()} as the account only has {error.AvailableAmount.AsStringWithUnits()} remaining")
+        );
 
         return TransactionBuilding.OperationGroupOf(
             fromAccount.DebitOperation(tokenAmount)

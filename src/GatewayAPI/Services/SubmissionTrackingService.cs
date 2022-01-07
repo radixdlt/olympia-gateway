@@ -83,8 +83,7 @@ public interface ISubmissionTrackingService
         byte[] signedTransaction,
         byte[] transactionIdentifierHash,
         string submittedToNodeName,
-        Core.ConstructionParseResponse parseResponse,
-        Gateway.LedgerState ledgerState
+        Core.ConstructionParseResponse parseResponse
     );
 
     Task MarkAsFailed(
@@ -124,8 +123,7 @@ public class SubmissionTrackingService : ISubmissionTrackingService
         byte[] signedTransaction,
         byte[] transactionIdentifierHash,
         string submittedToNodeName,
-        Core.ConstructionParseResponse parseResponse,
-        Gateway.LedgerState ledgerState
+        Core.ConstructionParseResponse parseResponse
     )
     {
         var submittedTimestamp = SystemClock.Instance.GetCurrentInstant();
@@ -146,7 +144,9 @@ public class SubmissionTrackingService : ISubmissionTrackingService
             return new MempoolTrackGuidance(ShouldSubmitToNode: false);
         }
 
-        var transactionContents = await _parsedTransactionMapper.MapToGatewayTransactionContents(parseResponse, ledgerState._Version);
+        var transactionContents = (await _parsedTransactionMapper.MapToGatewayTransactionContents(
+            new List<Core.ConstructionParseResponse> { parseResponse }
+        ))[0];
 
         var mempoolTransaction = MempoolTransaction.NewAsSubmittedForFirstTimeByGateway(
             transactionIdentifierHash,

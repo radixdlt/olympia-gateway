@@ -65,7 +65,7 @@
 using RadixCoreApi.Generated.Model;
 using System.Diagnostics.CodeAnalysis;
 
-namespace DataAggregator.Extensions;
+namespace Common.CoreCommunications;
 
 public static class CoreApiModelExtensions
 {
@@ -76,7 +76,6 @@ public static class CoreApiModelExtensions
 
     public static bool IsNotRoundDataOrValidatorBftData(this Operation operation)
     {
-        // TODO:NG-25 - ensure that ValidatorBFTData is captured at end of epoch
         // If data is null this also returns false.
         return operation.Data?.DataObject is not (RoundData or ValidatorBFTData);
     }

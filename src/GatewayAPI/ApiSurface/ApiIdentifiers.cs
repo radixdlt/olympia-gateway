@@ -100,7 +100,9 @@ public static class ApiIdentifiers
 
     public static string AsStringWithUnits(this Gateway.TokenAmount apiTokenAmount)
     {
-        return $"{TokenAmount.FromSubUnitsString(apiTokenAmount.Value)} {apiTokenAmount.TokenIdentifier.Rri}";
+        return apiTokenAmount.TokenIdentifier.Rri.StartsWith("xrd_")
+            ? AsXrdString(apiTokenAmount) // xrd is a reserved symbol, so we can avoid sharing the full RRI
+            : $"{TokenAmount.FromSubUnitsString(apiTokenAmount.Value)} {apiTokenAmount.TokenIdentifier.Rri}";
     }
 
     public static Gateway.TokenAmount AsGatewayTokenAmount(this Core.ResourceAmount resourceAmount)

@@ -73,52 +73,52 @@ public class InternalServerException : KnownGatewayErrorException
     {
     }
 
-    private InternalServerException(InternalServerError internalServerError, string userFacingMessage)
-        : base(500, internalServerError, userFacingMessage)
+    public static InternalServerException OfShareableException(Exception exception, string traceId)
     {
-    }
-
-    public static InternalServerException OfShareableException(Exception exception)
-    {
+        var message = $"An unexpected error occurred handling the request. If reporting this issue, please include TraceId={traceId}";
         return new InternalServerException(
             new InternalServerError(exception.GetType().Name, exception.Message),
-            "An unexpected error occurred handling the request",
+            message,
             exception.Message
         );
     }
 
     public static InternalServerException OfHiddenException(Exception exception, string traceId)
     {
+        var message = $"An unexpected error occurred handling the request. If reporting this issue, please include TraceId={traceId}";
         return new InternalServerException(
-            new InternalServerError("UnknownException", $"If reporting this issue, please include TraceId={traceId}"),
-            "An unexpected error occurred handling the request",
+            new InternalServerError("UnknownException", "N/A"),
+            message,
             exception.Message
         );
     }
 
     public static InternalServerException OfUnhandledCoreApiException(string coreErrorJsonContent, string traceId)
     {
+        var message = $"An unexpected error occurred handling the request. If reporting this issue, please include TraceId={traceId}";
         return new InternalServerException(
-            new InternalServerError("UpstreamCoreApiRequestException", $"If reporting this issue, please include TraceId={traceId}"),
-            "An unexpected error occurred handling the request",
+            new InternalServerError("UpstreamCoreApiRequestException", "N/A"),
+            message,
             coreErrorJsonContent
         );
     }
 
     public static InternalServerException OfInvalidCoreApiResponseException(InvalidCoreApiResponseException exception, string traceId)
     {
+        var message = $"An unexpected error occurred handling the request. If reporting this issue, please include TraceId={traceId}";
         return new InternalServerException(
-            new InternalServerError("InvalidCoreApiResponseException", $"If reporting this issue, please include TraceId={traceId}"),
-            "An unexpected error occurred handling the request",
+            new InternalServerError("InvalidCoreApiResponseException", "N/A"),
+            message,
             exception.Message
         );
     }
 
     public static InternalServerException OfInvalidGatewayException(string traceId)
     {
+        var message = $"An unexpected error occurred handling the request. If reporting this issue, please include TraceId={traceId}";
         return new InternalServerException(
-            new InternalServerError("BadGatewayException", $"If reporting this issue, please include TraceId={traceId}"),
-            "An unexpected error occurred handling the request",
+            new InternalServerError("BadGatewayException", "N/A"),
+            message,
             "Could not receive valid response from upstream server"
         );
     }

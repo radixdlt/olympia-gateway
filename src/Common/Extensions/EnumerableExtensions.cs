@@ -66,6 +66,21 @@ namespace Common.Extensions;
 
 public static class EnumerableExtensions
 {
+    public static IEnumerable<TResult> SelectNonNull<TSource, TResult>(
+        this IEnumerable<TSource> source,
+        Func<TSource, TResult?> selector
+    )
+    {
+        foreach (var item in source)
+        {
+            var result = selector(item);
+            if (result != null)
+            {
+                yield return result;
+            }
+        }
+    }
+
     public static TItem GetRandomBy<TItem>(this IEnumerable<TItem> items, Func<TItem, double> weightingSelector)
     {
         var allItems = items.ToList();

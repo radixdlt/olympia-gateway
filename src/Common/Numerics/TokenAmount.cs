@@ -73,7 +73,7 @@ public readonly record struct TokenAmount : IComparable<TokenAmount>
     private const int DecimalPrecision = 18;
     private const int MaxPostgresPrecision = 1000;
 
-    // We under-estimate this so that we're definitely safe!
+    // We under-estimate this so that we're definitely safe
     private static readonly int _safeByteLengthLimitBeforePostgresError = (int)Math.Floor(MaxPostgresPrecision * Math.Log(10, 256));
     private static readonly BigInteger _divisor = BigInteger.Pow(10, DecimalPrecision);
 
@@ -139,19 +139,32 @@ public readonly record struct TokenAmount : IComparable<TokenAmount>
     }
 
     public static TokenAmount operator +(TokenAmount a) => a;
+
     public static TokenAmount operator -(TokenAmount a) => a.IsNaN() ? NaN : new TokenAmount(-a._subUnits);
+
     public static TokenAmount operator +(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? NaN : new TokenAmount(a._subUnits + b._subUnits);
+
     public static TokenAmount operator -(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? NaN : new TokenAmount(a._subUnits - b._subUnits);
+
     public static TokenAmount operator *(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? NaN : new TokenAmount(a._subUnits * b._subUnits);
+
     public static TokenAmount operator /(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? NaN : new TokenAmount(a._subUnits / b._subUnits);
 
+    // ReSharper disable SimplifyConditionalTernaryExpression - As it's clearer as written
+#pragma warning disable IDE0075
     public static bool operator <(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? false : a._subUnits < b._subUnits;
-    public static bool operator >(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? false : a._subUnits > b._subUnits;
-    public static bool operator <=(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? false : a._subUnits <= b._subUnits;
-    public static bool operator >=(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? false : a._subUnits >= b._subUnits;
 
-    public static TokenAmount Min(TokenAmount a, TokenAmount b) => a <= b ? a : b;
-    public static TokenAmount Max(TokenAmount a, TokenAmount b) => a >= b ? a : b;
+    public static bool operator >(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? false : a._subUnits > b._subUnits;
+
+    public static bool operator <=(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? false : a._subUnits <= b._subUnits;
+
+    public static bool operator >=(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? false : a._subUnits >= b._subUnits;
+#pragma warning restore IDE0075
+    // ReSharper restore SimplifyConditionalTernaryExpression
+
+    public static TokenAmount Min(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? NaN : a <= b ? a : b;
+
+    public static TokenAmount Max(TokenAmount a, TokenAmount b) => (a.IsNaN() || b.IsNaN()) ? NaN : a >= b ? a : b;
 
     private TokenAmount(BigInteger subUnits)
     {

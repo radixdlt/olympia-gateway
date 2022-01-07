@@ -83,7 +83,7 @@ public static class CoreApiErrorWrapper
 
             if (wrappedException == null)
             {
-                throw; // Throw unwrapped exception
+                throw; // Throw unwrapped ApiException
             }
 
             throw wrappedException;
@@ -101,10 +101,10 @@ public static class CoreApiErrorWrapper
         // We have to handle each separately to capture the right types on the error objects
         return coreError.Details switch
         {
-            AboveMaximumValidatorFeeIncreaseError error => WrappedCoreApiException.Of(apiException, error),
-            BelowMinimumStakeError error => WrappedCoreApiException.Of(apiException, error), // Should have already detected this, but rethrow anyway
+            AboveMaximumValidatorFeeIncreaseError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
+            BelowMinimumStakeError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }), // Should have already detected this, but rethrow anyway
             DataObjectNotSupportedByEntityError error => WrappedCoreApiException.Of(apiException, error),
-            FeeConstructionError error => WrappedCoreApiException.Of(apiException, error),
+            FeeConstructionError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { Transience = Transience.MaybeTransient }),
             InternalServerError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { Transience = Transience.MaybeTransient }),
             InvalidAddressError error => WrappedCoreApiException.Of(apiException, error), // Not specific enough - rely on Gateway handling
             InvalidDataObjectError error => WrappedCoreApiException.Of(apiException, error),
@@ -112,17 +112,17 @@ public static class CoreApiErrorWrapper
             InvalidHexError error => WrappedCoreApiException.Of(apiException, error),
             InvalidJsonError error => WrappedCoreApiException.Of(apiException, error),
             InvalidPartialStateIdentifierError error => WrappedCoreApiException.Of(apiException, error),
-            InvalidPublicKeyError error => WrappedCoreApiException.Of(apiException, error),
-            InvalidSignatureError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }), // Handle in ConstructionService when we have the required data to construct the full exception
+            InvalidPublicKeyError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
+            InvalidSignatureError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
             InvalidSubEntityError error => WrappedCoreApiException.Of(apiException, error),
             InvalidTransactionError error => WrappedCoreApiException.Of(apiException, error),
             InvalidTransactionHashError error => WrappedCoreApiException.Of(apiException, error),
-            MessageTooLongError error => WrappedCoreApiException.Of(apiException, error),
+            MessageTooLongError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
             MempoolFullError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { Transience = Transience.Transient }),
             NetworkNotSupportedError error => WrappedCoreApiException.Of(apiException, error),
-            NotEnoughNativeTokensForFeesError error => WrappedCoreApiException.Of(apiException, error),
-            NotEnoughResourcesError error => WrappedCoreApiException.Of(apiException, error), // Handle in ConstructionService
-            NotValidatorOwnerError error => WrappedCoreApiException.Of(apiException, error), // Not specific enough - rely on Gateway handling
+            NotEnoughNativeTokensForFeesError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
+            NotEnoughResourcesError error => WrappedCoreApiException.Of(apiException, error),
+            NotValidatorOwnerError error => WrappedCoreApiException.Of(apiException, error),
             PublicKeyNotSupportedError error => WrappedCoreApiException.Of(apiException, error),
             ResourceDepositOperationNotSupportedByEntityError error => WrappedCoreApiException.Of(apiException, error),
             ResourceWithdrawOperationNotSupportedByEntityError error => WrappedCoreApiException.Of(apiException, error),

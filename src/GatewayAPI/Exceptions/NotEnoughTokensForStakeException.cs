@@ -70,7 +70,7 @@ namespace GatewayAPI.Exceptions;
 public class NotEnoughTokensForStakeException : ValidationException
 {
     public NotEnoughTokensForStakeException(TokenAmount requestedAmount, TokenAmount availableAmount)
-        : base(new NotEnoughTokensForStakeError(requestedAmount, availableAmount), GetErrorMessage(requestedAmount, availableAmount))
+        : base(new NotEnoughTokensForStakeError(requestedAmount: requestedAmount, availableAmount: availableAmount), GetErrorMessage(requestedAmount, availableAmount))
     {
     }
 

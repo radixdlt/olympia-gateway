@@ -63,7 +63,6 @@
  */
 
 using Common.CoreCommunications;
-using Common.Database;
 using Common.Database.Models.Mempool;
 using Common.Extensions;
 using Common.Utilities;
@@ -218,7 +217,6 @@ public class MempoolTrackerService : IMempoolTrackerService
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(token);
 
         var parsedTransactionMapper = new ParsedTransactionMapper<AggregatorDbContext>(dbContext, _actionInferrer);
-        var topOfLedgerVersion = (await dbContext.GetTopLedgerTransaction().SingleOrDefaultAsync(token))?.ResultantStateVersion ?? 0;
 
         var mempoolTransactionIds = combinedMempool.Keys.ToList(); // Npgsql optimizes List<> Contains
 
@@ -234,12 +232,18 @@ public class MempoolTrackerService : IMempoolTrackerService
             .Where(mt => !existingTransactionIds.Contains(mt.Id))
             .ToList();
 
-        var newDbMempoolTransactions = new List<MempoolTransaction>();
+        var gatewayTransactionDetails = await parsedTransactionMapper.MapToGatewayTransactionContents(
+            newTransactions.Select(nt => nt.Transaction).ToList(),
+            token
+        );
 
-        foreach (var transaction in newTransactions)
-        {
-            newDbMempoolTransactions.Add(await MapToMempoolTransaction(parsedTransactionMapper, transaction, topOfLedgerVersion, token));
-        }
+        var newDbMempoolTransactions = newTransactions
+            .Select((transactionData, index) => MempoolTransaction.NewFirstSeenInMempool(
+                transactionData.Id,
+                transactionData.Payload,
+                gatewayTransactionDetails[index],
+                transactionData.SeenAt
+            ));
 
         _dbTransactionsAddedDueToNodeMempoolAppearanceCount.Inc(newTransactions.Count);
 
@@ -270,21 +274,6 @@ public class MempoolTrackerService : IMempoolTrackerService
                 dbUpdateMs
             );
         }
-    }
-
-    private async Task<MempoolTransaction> MapToMempoolTransaction(
-        IParsedTransactionMapper parsedTransactionMapper,
-        TransactionData transactionData,
-        long topOfLedgerVersion,
-        CancellationToken token
-    )
-    {
-        return MempoolTransaction.NewFirstSeenInMempool(
-            transactionData.Id,
-            transactionData.Payload,
-            await parsedTransactionMapper.MapToGatewayTransactionContents(transactionData.Transaction, topOfLedgerVersion, token),
-            transactionData.SeenAt
-        );
     }
 
     private async Task HandleMissingPendingTransactions(

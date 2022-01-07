@@ -268,6 +268,8 @@ dotnet_diagnostic.SA1200.severity = none # SA1200UsingDirectivesMustBePlacedCorr
 dotnet_diagnostic.SA1111.severity = none # SA1111ClosingParenthesisMustBeOnLineOfLastParameter - I prefer symmetric bracket placement as they're easier to parse in blocks
 dotnet_diagnostic.SA1009.severity = none # SA1009ClosingParenthesisMustBeSpacedCorrectly - Goes hand-in-hand with SA1111
 dotnet_diagnostic.SA1117.severity = none # SA1117ParametersMustBeOnSameLineOrSeparateLines - Structured log messages benefit from being across 2 lines - one for message, one for parameters
+dotnet_diagnostic.SA1512.severity = none # SA1512SingleLineCommentsMustNotBeFollowedByBlankLine - As it fights with // ReSharper disable comments
+dotnet_diagnostic.SA1515.severity = none # SA1515SingleLineCommentMustBePrecededByBlankLine - As it fights with // ReSharper disable comments
 
 # > Inherited from other projects
 dotnet_diagnostic.SA0001.severity = none # SA0001XmlCommentAnalysisDisabled

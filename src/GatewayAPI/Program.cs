@@ -69,7 +69,6 @@ using Common.Database;
 using GatewayAPI.ApiSurface;
 using GatewayAPI.Database;
 using GatewayAPI.DependencyInjection;
-using GatewayAPI.Monitoring;
 using GatewayAPI.Services;
 using Prometheus;
 
@@ -141,11 +140,8 @@ servicesBuilder.AddCors(options =>
 });
 
 servicesBuilder.AddHealthChecks()
-    .AddCheck<GatewayDbContextHealthCheck<GatewayReadOnlyDbContext>>("readonly_database_connection_check")
-    .AddCheck<GatewayDbContextHealthCheck<GatewayReadWriteDbContext>>("readwrite_database_connection_check")
-    /* Add some temporary diagnostic DbHealthChecks to try to understand what's going on with the Framework provided DbContext Check */
-    .AddCheck<DiagnosticDbContextHealthCheck<GatewayReadOnlyDbContext>>("IGNORE_ME_diagnostic_readonly_database_connection_check")
-    .AddCheck<DiagnosticDbContextHealthCheck<GatewayReadWriteDbContext>>("IGNORE_ME_diagnostic_readwrite_database_connection_check")
+    .AddDbContextCheck<GatewayReadOnlyDbContext>("readonly_database_connection_check")
+    .AddDbContextCheck<GatewayReadWriteDbContext>("readwrite_database_connection_check")
     .ForwardToPrometheus();
 
 var app = builder.Build();

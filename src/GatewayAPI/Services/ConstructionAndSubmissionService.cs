@@ -80,9 +80,9 @@ public interface IConstructionAndSubmissionService
 {
     Task<Gateway.TransactionBuild> HandleBuildRequest(Gateway.TransactionBuildRequest request, Gateway.LedgerState ledgerState);
 
-    Task<Gateway.TransactionFinalizeResponse> HandleFinalizeRequest(Gateway.TransactionFinalizeRequest request, Gateway.LedgerState ledgerState);
+    Task<Gateway.TransactionFinalizeResponse> HandleFinalizeRequest(Gateway.TransactionFinalizeRequest request);
 
-    Task<Gateway.TransactionSubmitResponse> HandleSubmitRequest(Gateway.TransactionSubmitRequest request, Gateway.LedgerState ledgerState);
+    Task<Gateway.TransactionSubmitResponse> HandleSubmitRequest(Gateway.TransactionSubmitRequest request);
 }
 
 public class ConstructionAndSubmissionService : IConstructionAndSubmissionService
@@ -197,14 +197,13 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
     }
 
     public async Task<Gateway.TransactionFinalizeResponse> HandleFinalizeRequest(
-        Gateway.TransactionFinalizeRequest request,
-        Gateway.LedgerState ledgerState
+        Gateway.TransactionFinalizeRequest request
     )
     {
         _transactionFinalizeRequestCount.Inc();
         try
         {
-            var response = await HandleFinalizeAndCreateResponse(request, ledgerState);
+            var response = await HandleFinalizeAndCreateResponse(request);
             _transactionFinalizeSuccessCount.Inc();
             return response;
         }
@@ -216,14 +215,13 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
     }
 
     public async Task<Gateway.TransactionSubmitResponse> HandleSubmitRequest(
-        Gateway.TransactionSubmitRequest request,
-        Gateway.LedgerState ledgerState
+        Gateway.TransactionSubmitRequest request
     )
     {
         _transactionSubmitRequestCount.Inc();
         try
         {
-            var response = await HandleSubmitAndCreateResponse(request, ledgerState);
+            var response = await HandleSubmitAndCreateResponse(request);
             _transactionSubmitSuccessCount.Inc();
             return response;
         }
@@ -263,7 +261,7 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
         );
     }
 
-    private async Task<Gateway.TransactionFinalizeResponse> HandleFinalizeAndCreateResponse(Gateway.TransactionFinalizeRequest request, Gateway.LedgerState ledgerState)
+    private async Task<Gateway.TransactionFinalizeResponse> HandleFinalizeAndCreateResponse(Gateway.TransactionFinalizeRequest request)
     {
         var coreFinalizeResponse = await HandleCoreFinalizeRequest(request, new Core.ConstructionFinalizeRequest(
             _coreApiHandler.GetNetworkIdentifier(),
@@ -286,8 +284,7 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
                 new Gateway.TransactionSubmitRequest(
                     networkIdentifier: request.NetworkIdentifier,
                     signedTransaction: coreFinalizeResponse.SignedTransaction
-                ),
-                ledgerState
+                )
             );
         }
 
@@ -297,14 +294,14 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
         );
     }
 
-    private async Task<Gateway.TransactionSubmitResponse> HandleSubmitAndCreateResponse(Gateway.TransactionSubmitRequest request, Gateway.LedgerState ledgerState)
+    private async Task<Gateway.TransactionSubmitResponse> HandleSubmitAndCreateResponse(Gateway.TransactionSubmitRequest request)
     {
         var signedTransactionContents = _validations.ExtractValidHex("Signed transaction", request.SignedTransaction);
         var transactionHashIdentifier = RadixHashing.CreateTransactionHashIdentifierFromSignTransactionPayload(
             signedTransactionContents.Bytes
         );
 
-        await HandleSubmission(signedTransactionContents, transactionHashIdentifier, ledgerState);
+        await HandleSubmission(signedTransactionContents, transactionHashIdentifier);
 
         return new Gateway.TransactionSubmitResponse(
             transactionIdentifier: transactionHashIdentifier.AsGatewayTransactionIdentifier()
@@ -331,6 +328,8 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
             feePayer
         );
 
+        // This performs checks against known ledger, and throws relevant exceptions, eg if a user doesn't have enough
+        // funds for a given action. However -- it doesn't know how much fees will be at this point.
         var mappedTransaction = await transactionBuilder.MapAndValidateActions(request.Actions);
 
         var coreBuildRequest = new Core.ConstructionBuildRequest(
@@ -341,7 +340,57 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
             disableResourceAllocateAndDestroy: request.DisableTokenMintAndBurn
         );
 
-        return await _coreApiHandler.BuildTransaction(coreBuildRequest);
+        /* The Core API, when building / analysing a transaction, removes the fee first, and then tries to
+         * perform the rest of the transaction.
+         *
+         * - A NotEnoughNativeTokensForFeesError fires if there is not enough XRD during the initial fee step
+         * - A NotEnoughResourcesError fires if there are not enough resources during a transaction step
+         *
+         * So, if we view a fee coming out "at the end", as a human would, "not enough fees" can actually be
+         * represented by either exception from the API.
+         */
+        try
+        {
+            return await _coreApiHandler.BuildTransaction(coreBuildRequest);
+        }
+        catch (WrappedCoreApiException<Core.NotEnoughResourcesError> ex)
+        {
+            var xrdAddress = _networkConfigurationProvider.GetXrdAddress();
+            var isXrd = (ex.Error.AttemptedToTake.ResourceIdentifier as Core.TokenResourceIdentifier)?.Rri ==
+                        xrdAddress;
+
+            if (!isXrd)
+            {
+                // We should have already detected the overspend at MapAndValidateActions time - but we didn't :(
+                // Perhaps because our ledger state is a few seconds behind. We don't have a suitable exception type
+                // to throw - so let this exception bubble up and we can return a 500.
+                throw;
+            }
+
+            var xrdAfterTransaction = mappedTransaction.BeforeBalances.GetValueOrDefault(xrdAddress) +
+                                      mappedTransaction.BalanceChanges.GetValueOrDefault(xrdAddress);
+            throw new NotEnoughNativeTokensForFeeException(
+                ex.Error.Fee.AsGatewayTokenAmount(),
+                xrdAfterTransaction.AsGatewayTokenAmount(xrdAddress)
+            );
+        }
+        catch (WrappedCoreApiException<Core.NotEnoughNativeTokensForFeesError> ex)
+        {
+            // It's possible that a fee is (say) 10XRD, but a user tries to send 5XRD, and only has 9XRD in their account.
+            // In this case, the Core.NotEnoughNativeTokensForFeesError will report an Available of 9XRD (as the Fee
+            // is taken at the start of the transaction) - but really, it would make more sense to show the user 4XRD.
+            // So we recalculate the available amount in the Gateway service.
+
+            var xrdAddress = _networkConfigurationProvider.GetXrdAddress();
+
+            var xrdAfterTransaction = mappedTransaction.BeforeBalances.GetValueOrDefault(xrdAddress) +
+                                      mappedTransaction.BalanceChanges.GetValueOrDefault(xrdAddress);
+
+            throw new NotEnoughNativeTokensForFeeException(
+                ex.Error.FeeEstimate.AsGatewayTokenAmount(),
+                xrdAfterTransaction.AsGatewayTokenAmount(xrdAddress)
+            );
+        }
     }
 
     private async Task<Core.ConstructionFinalizeResponse> HandleCoreFinalizeRequest(
@@ -377,15 +426,14 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
         }
         catch (WrappedCoreApiException ex) when (ex.Properties.MarksInvalidTransaction)
         {
-            throw InvalidTransactionException.FromInvalidTransaction(signedTransaction.AsString);
+            throw InvalidTransactionException.FromInvalidTransactionDueToCoreApiException(signedTransaction.AsString, ex);
         }
     }
 
     // NB - The error handling here should mirror the resubmission in MempoolResubmissionService
     private async Task HandleSubmission(
         ValidatedHex signedTransaction,
-        byte[] transactionIdentifierHash,
-        Gateway.LedgerState ledgerState
+        byte[] transactionIdentifierHash
     )
     {
         var parseResponse = await HandleParseSignedTransaction(signedTransaction);
@@ -394,8 +442,7 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
             signedTransaction.Bytes,
             transactionIdentifierHash,
             _coreApiHandler.GetCoreNodeConnectedTo().Name,
-            parseResponse,
-            ledgerState
+            parseResponse
         );
 
         if (mempoolTrackGuidance.TransactionAlreadyFailedReason != null)
@@ -447,19 +494,7 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
                 MempoolTransactionFailureReason.Unknown,
                 $"Core API Exception: {ex.Error.GetType().Name} marking invalid transaction on initial submission"
             );
-            throw InvalidTransactionException.FromInvalidTransaction(signedTransaction.AsString);
-        }
-        catch (KnownGatewayErrorException ex)
-        {
-            // This is a client error which has already been identified - in the mapping from the Core API
-            // so the transaction is invalid, and we can let it bubble up
-            _transactionSubmitResolutionByResultCount.WithLabels("client_error").Inc();
-            await _submissionTrackingService.MarkAsFailed(
-                transactionIdentifierHash,
-                MempoolTransactionFailureReason.Unknown,
-                $"Known Gateway Error: {ex.GetType().Name} on initial submission"
-            );
-            throw;
+            throw InvalidTransactionException.FromInvalidTransactionDueToCoreApiException(signedTransaction.AsString, ex);
         }
         catch (WrappedCoreApiException ex) when (ex.Properties.Transience == Transience.Permanent)
         {

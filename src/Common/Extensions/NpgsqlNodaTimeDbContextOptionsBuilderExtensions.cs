@@ -62,15 +62,50 @@
  * permissions under this License.
  */
 
-using Common.Numerics;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+namespace Common.Extensions;
 
-namespace Common.Database.ValueConverters;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Npgsql;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.Internal;
 
-public class TokenAmountToStringValueConverter : ValueConverter<TokenAmount, string>
+/// <summary>
+/// Temporary workaround for https://github.com/npgsql/efcore.pg/issues/2201.
+/// </summary>
+public static class NpgsqlNodaTimeDbContextOptionsBuilderExtensions
 {
-    public TokenAmountToStringValueConverter()
-        : base(v => v.ToPostgresDecimal(), v => TokenAmount.FromDecimalString(v))
+    private static readonly object _lockObject = new();
+    private static bool _isInitialized;
+
+    public static NpgsqlDbContextOptionsBuilder NonBrokenUseNodaTime(
+        this NpgsqlDbContextOptionsBuilder optionsBuilder
+    )
     {
+        InitializeOnceNodaTime();
+
+        var coreOptionsBuilder = ((IRelationalDbContextOptionsBuilderInfrastructure)optionsBuilder).OptionsBuilder;
+
+#pragma warning disable EF1001
+        var extension = coreOptionsBuilder.Options.FindExtension<NpgsqlNodaTimeOptionsExtension>()
+                        ?? new NpgsqlNodaTimeOptionsExtension();
+
+        ((IDbContextOptionsBuilderInfrastructure)coreOptionsBuilder).AddOrUpdateExtension(extension);
+#pragma warning restore EF1001
+
+        return optionsBuilder;
+    }
+
+    private static void InitializeOnceNodaTime()
+    {
+        lock (_lockObject)
+        {
+            if (_isInitialized)
+            {
+                return;
+            }
+
+            NpgsqlConnection.GlobalTypeMapper.UseNodaTime();
+            _isInitialized = true;
+        }
     }
 }

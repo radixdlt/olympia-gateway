@@ -76,6 +76,6 @@ public class NotEnoughTokensForTransferException : ValidationException
 
     public static string GetErrorMessage(TokenAmount requestedAmount, TokenAmount availableAmount)
     {
-        return $"You requested to transfer ${requestedAmount.AsStringWithUnits()} but only have ${availableAmount.AsStringWithUnits()} available";
+        return $"You requested to transfer {requestedAmount.AsStringWithUnits()} but only have {availableAmount.AsStringWithUnits()} available";
     }
 }

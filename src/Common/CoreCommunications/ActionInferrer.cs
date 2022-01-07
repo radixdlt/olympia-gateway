@@ -66,7 +66,6 @@ using Common.Database.Models.Ledger;
 using Common.Database.Models.Ledger.History;
 using Common.Extensions;
 using Common.Numerics;
-using DataAggregator.Extensions;
 using Core = RadixCoreApi.Generated.Model;
 using Gateway = RadixGatewayApi.Generated.Model;
 
@@ -79,7 +78,7 @@ public interface IActionInferrer
     GatewayInferredAction? InferAction(
         bool isSystemTransaction,
         OperationGroupSummarisation summarisation,
-        Dictionary<string, ValidatorStakeSnapshot> stakeSnapshotsByValidatorAddress
+        Func<string, ValidatorStakeSnapshot> stakeSnapshotsByValidatorAddress
     );
 }
 
@@ -170,7 +169,7 @@ public class ActionInferrer : IActionInferrer
     public GatewayInferredAction? InferAction(
         bool isSystemTransaction,
         OperationGroupSummarisation summarisation,
-        Dictionary<string, ValidatorStakeSnapshot> stakeSnapshotsByValidatorAddress
+        Func<string, ValidatorStakeSnapshot> stakeSnapshotsByValidatorAddress
     )
     {
         var (tokenData, tokenMetadata, trackedTotalChanges, _) = summarisation;
@@ -312,7 +311,7 @@ public class ActionInferrer : IActionInferrer
                 throw new InvalidTransactionException("Prepared unstake using non-stake unit resource");
             }
 
-            var xrdEstimate = stakeSnapshotsByValidatorAddress[stakeUnitResourceIdentifier.ValidatorAddress].EstimateXrdConversion(sentAmount);
+            var xrdEstimate = stakeSnapshotsByValidatorAddress(stakeUnitResourceIdentifier.ValidatorAddress).EstimateXrdConversion(sentAmount);
 
             return new GatewayInferredAction(
                 InferredActionType.UnstakeTokens,
@@ -338,7 +337,7 @@ public class ActionInferrer : IActionInferrer
             }
 
             return new GatewayInferredAction(
-                InferredActionType.UnstakeTokens,
+                InferredActionType.SimpleTransfer,
                 new Gateway.TransferTokens(
                     fromAccount: AccountFrom(sender),
                     toAccount: AccountFrom(recipient),

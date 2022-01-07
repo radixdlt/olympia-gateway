@@ -63,21 +63,11 @@
  */
 
 using Common.CoreCommunications;
-using Common.Exceptions;
 using Common.Extensions;
-using GatewayAPI.ApiSurface;
 using GatewayAPI.Configuration;
 using GatewayAPI.Configuration.Models;
-using GatewayAPI.Exceptions;
 using GatewayAPI.Services;
-using RadixCoreApi.Generated.Client;
 using RadixCoreApi.Generated.Model;
-using BelowMinimumStakeError = RadixCoreApi.Generated.Model.BelowMinimumStakeError;
-using Gateway = RadixGatewayApi.Generated.Model;
-using InvalidPublicKeyError = RadixCoreApi.Generated.Model.InvalidPublicKeyError;
-using MessageTooLongError = RadixCoreApi.Generated.Model.MessageTooLongError;
-using NetworkIdentifier = RadixCoreApi.Generated.Model.NetworkIdentifier;
-using TransactionNotFoundError = RadixCoreApi.Generated.Model.TransactionNotFoundError;
 
 namespace GatewayAPI.CoreCommunications;
 
@@ -124,88 +114,27 @@ public class CoreApiHandler : ICoreApiHandler
 
     public async Task<ConstructionBuildResponse> BuildTransaction(ConstructionBuildRequest request)
     {
-        return await TranslateCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionBuildPostAsync(request));
+        return await CoreApiErrorWrapper.ExtractCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionBuildPostAsync(request));
     }
 
     public async Task<ConstructionParseResponse> ParseTransaction(ConstructionParseRequest request)
     {
-        return await TranslateCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionParsePostAsync(request));
+        return await CoreApiErrorWrapper.ExtractCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionParsePostAsync(request));
     }
 
     public async Task<ConstructionFinalizeResponse> FinalizeTransaction(ConstructionFinalizeRequest request)
     {
-        return await TranslateCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionFinalizePostAsync(request));
+        return await CoreApiErrorWrapper.ExtractCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionFinalizePostAsync(request));
     }
 
     public async Task<ConstructionHashResponse> GetTransactionHash(ConstructionHashRequest request)
     {
-        return await TranslateCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionHashPostAsync(request));
+        return await CoreApiErrorWrapper.ExtractCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionHashPostAsync(request));
     }
 
     public async Task<ConstructionSubmitResponse> SubmitTransaction(ConstructionSubmitRequest request)
     {
-        return await TranslateCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionSubmitPostAsync(request));
-    }
-
-    private static async Task<T> TranslateCoreApiErrors<T>(Func<Task<T>> requestAction)
-    {
-        try
-        {
-            return await requestAction();
-        }
-        catch (ApiException apiException)
-        {
-            var exceptionToThrow = ExtractExceptionToThrow(apiException);
-
-            if (exceptionToThrow == null)
-            {
-                throw; // Throw unwrapped exception
-            }
-
-            throw exceptionToThrow;
-        }
-    }
-
-    private static Exception? ExtractExceptionToThrow(ApiException apiException)
-    {
-        var wrappedCoreApiException = CoreApiErrorWrapper.ExtractWrappedCoreApiException(apiException);
-
-        if (wrappedCoreApiException == null)
-        {
-            return null;
-        }
-
-        return wrappedCoreApiException switch
-        {
-            WrappedCoreApiException<AboveMaximumValidatorFeeIncreaseError> ex => InvalidRequestException.FromOtherError(
-                $"You attempted to increase validator fee by {ex.Error.AttemptedValidatorFeeIncrease}, larger than the maximum of {ex.Error.MaximumValidatorFeeIncrease}"
-            ),
-            WrappedCoreApiException<BelowMinimumStakeError> ex => new BelowMinimumStakeException(
-                requestedAmount: ex.Error.MinimumStake.AsGatewayTokenAmount(),
-                minimumAmount: ex.Error.MinimumStake.AsGatewayTokenAmount()
-            ),
-            WrappedCoreApiException<FeeConstructionError> ex => new CouldNotConstructFeesException(ex.Error.Attempts),
-            WrappedCoreApiException<NotEnoughNativeTokensForFeesError> ex => new NotEnoughNativeTokensForFeeException(
-                ex.Error.FeeEstimate.AsGatewayTokenAmount(),
-                ex.Error.Available.AsGatewayTokenAmount()
-            ),
-            WrappedCoreApiException<InvalidPublicKeyError> ex => new InvalidPublicKeyException(
-                new Gateway.PublicKey(ex.Error.InvalidPublicKey.Hex),
-                "Invalid public key"
-            ),
-            WrappedCoreApiException<MessageTooLongError> ex => new MessageTooLongException(
-                ex.Error.MaximumMessageLength,
-                ex.Error.AttemptedMessageLength
-            ),
-            WrappedCoreApiException<PublicKeyNotSupportedError> ex => new InvalidPublicKeyException(
-                new Gateway.PublicKey(ex.Error.UnsupportedPublicKey.Hex),
-                "Public key is not supported"
-            ),
-            WrappedCoreApiException<TransactionNotFoundError> ex => new TransactionNotFoundException(
-                new Gateway.TransactionIdentifier(ex.Error.TransactionIdentifier.Hash)
-            ),
-            _ => wrappedCoreApiException,
-        };
+        return await CoreApiErrorWrapper.ExtractCoreApiErrors(() => _coreApiProvider.ConstructionApi.ConstructionSubmitPostAsync(request));
     }
 
     private static ICoreApiProvider ChooseCoreApiProvider(IGatewayApiConfiguration configuration, HttpClient httpClient)

@@ -76,9 +76,9 @@ public enum Transience
 
 public class CoreApiErrorProperties
 {
-    public bool MarksInvalidTransaction { get; set; }
+    public bool MarksInvalidTransaction { get; init; }
 
-    public Transience Transience { get; set; } = Transience.Permanent;
+    public Transience Transience { get; init; } = Transience.Permanent;
 }
 
 /// <summary>

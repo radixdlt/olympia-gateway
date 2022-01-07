@@ -68,8 +68,8 @@ namespace GatewayAPI.Exceptions;
 
 public class InvalidValidatorAddressException : ValidationException
 {
-    public InvalidValidatorAddressException(string accountAddress, string userFacingMessage, string internalMessage)
-        : base(new InvalidAccountAddressError(accountAddress), userFacingMessage, internalMessage)
+    public InvalidValidatorAddressException(string validatorAddress, string userFacingMessage, string internalMessage)
+        : base(new InvalidValidatorAddressError(validatorAddress), userFacingMessage, internalMessage)
     {
     }
 }

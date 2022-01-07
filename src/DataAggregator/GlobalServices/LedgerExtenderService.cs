@@ -65,7 +65,6 @@
 using Common.CoreCommunications;
 using Common.Database.Models.Ledger;
 using Common.Database.Models.SingleEntries;
-using Common.Extensions;
 using Common.Utilities;
 using DataAggregator.DependencyInjection;
 using DataAggregator.LedgerExtension;
@@ -90,13 +89,6 @@ public record ConsistentLedgerExtension(
     List<CommittedTransactionData> TransactionData
 );
 
-public record PreparationForLedgerExtensionReport(
-    long RawTxnPersistenceMs,
-    int RawTxnUpsertTouchedRecords,
-    long MempoolTransactionUpdateMs,
-    int MempoolTransactionsTouchedRecords
-);
-
 public record CommitTransactionsReport(
     int TransactionsCommittedCount,
     TransactionSummary FinalTransaction,
@@ -116,13 +108,22 @@ public class LedgerExtenderService : ILedgerExtenderService
     private readonly IDbContextFactory<AggregatorDbContext> _dbContextFactory;
     private readonly IRawTransactionWriter _rawTransactionWriter;
     private readonly IEntityDeterminer _entityDeterminer;
+    private readonly IActionInferrer _actionInferrer;
     private readonly INetworkConfigurationProvider _networkConfigurationProvider;
+
+    private record ProcessTransactionReport(
+        long TransactionContentHandlingMs,
+        long DbDependenciesLoadingMs,
+        int TransactionContentDbActionsCount,
+        long LocalDbContextActionsMs
+    );
 
     public LedgerExtenderService(
         ILogger<LedgerExtenderService> logger,
         IDbContextFactory<AggregatorDbContext> dbContextFactory,
         IRawTransactionWriter rawTransactionWriter,
         IEntityDeterminer entityDeterminer,
+        IActionInferrer actionInferrer,
         INetworkConfigurationProvider networkConfigurationProvider
     )
     {
@@ -130,6 +131,7 @@ public class LedgerExtenderService : ILedgerExtenderService
         _dbContextFactory = dbContextFactory;
         _rawTransactionWriter = rawTransactionWriter;
         _entityDeterminer = entityDeterminer;
+        _actionInferrer = actionInferrer;
         _networkConfigurationProvider = networkConfigurationProvider;
     }
 
@@ -145,50 +147,49 @@ public class LedgerExtenderService : ILedgerExtenderService
         CancellationToken token
     )
     {
-        // Create own context for the preparation unit of work.
-        await using var preparationDbContext = await _dbContextFactory.CreateDbContextAsync(token);
+        var preparationReport = await PrepareForLedgerExtension(ledgerExtension, token);
 
-        var preparationReport = await PrepareForLedgerExtension(preparationDbContext, ledgerExtension, token);
+        var ledgerExtensionReport = await ExtendLedger(ledgerExtension, latestSyncTarget, token);
+        var processTransactionReport = ledgerExtensionReport.ProcessTransactionReport;
 
-        var preparationEntriesTouched = await preparationDbContext.SaveChangesAsync(token);
-
-        // Create own context for ledger extension unit of work
-        await using var ledgerExtensionDbContext = await _dbContextFactory.CreateDbContextAsync(token);
-
-        var bulkTransactionCommitReport = await new BulkTransactionCommitter(_entityDeterminer, ledgerExtensionDbContext, token)
-            .ProcessTransactionsAndCaptureChangeInDbContext(ledgerExtension.TransactionData);
-
-        var finalTransactionSummary = ledgerExtension.TransactionData.Last().TransactionSummary;
-
-        await CreateOrUpdateLedgerStatus(ledgerExtensionDbContext, finalTransactionSummary, latestSyncTarget, token);
-
-        var (ledgerExtensionEntriesWritten, dbPersistenceMs) = await CodeStopwatch.TimeInMs(
-            () => ledgerExtensionDbContext.SaveChangesAsync(token)
-        );
+        var dbEntriesWritten =
+            preparationReport.RawTxnUpsertTouchedRecords
+            + preparationReport.MempoolTransactionsTouchedRecords
+            + preparationReport.PreparationEntriesTouched
+            + ledgerExtensionReport.EntriesWritten;
 
         return new CommitTransactionsReport(
             ledgerExtension.TransactionData.Count,
-            finalTransactionSummary,
+            ledgerExtensionReport.FinalTransactionSummary,
             preparationReport.RawTxnPersistenceMs,
             preparationReport.MempoolTransactionUpdateMs,
-            bulkTransactionCommitReport.TransactionContentHandlingMs,
-            bulkTransactionCommitReport.DbDependenciesLoadingMs,
-            bulkTransactionCommitReport.TransactionContentDbActionsCount,
-            bulkTransactionCommitReport.LocalDbContextActionsMs,
-            dbPersistenceMs,
-            preparationReport.RawTxnUpsertTouchedRecords + preparationReport.MempoolTransactionsTouchedRecords + preparationEntriesTouched + ledgerExtensionEntriesWritten
+            processTransactionReport.TransactionContentHandlingMs,
+            processTransactionReport.DbDependenciesLoadingMs,
+            processTransactionReport.TransactionContentDbActionsCount,
+            processTransactionReport.LocalDbContextActionsMs,
+            ledgerExtensionReport.DbPersistenceMs,
+            dbEntriesWritten
         );
     }
+
+    private record PreparationForLedgerExtensionReport(
+        long RawTxnPersistenceMs,
+        int RawTxnUpsertTouchedRecords,
+        long MempoolTransactionUpdateMs,
+        int MempoolTransactionsTouchedRecords,
+        int PreparationEntriesTouched
+    );
 
     /// <summary>
     ///  This should be idempotent - ie can be repeated if the main commit task fails.
     /// </summary>
     private async Task<PreparationForLedgerExtensionReport> PrepareForLedgerExtension(
-        AggregatorDbContext preparationDbContext,
         ConsistentLedgerExtension ledgerExtension,
         CancellationToken token
     )
     {
+        await using var preparationDbContext = await _dbContextFactory.CreateDbContextAsync(token);
+
         var topOfLedgerSummary = await TransactionSummarisation.GetSummaryOfTransactionOnTopOfLedger(preparationDbContext, token);
 
         if (ledgerExtension.ParentSummary.StateVersion != topOfLedgerSummary.StateVersion)
@@ -217,11 +218,14 @@ public class LedgerExtenderService : ILedgerExtenderService
             () => _rawTransactionWriter.EnsureMempoolTransactionsMarkedAsCommitted(preparationDbContext, ledgerExtension.TransactionData, token)
         );
 
+        var preparationEntriesTouched = await preparationDbContext.SaveChangesAsync(token);
+
         return new PreparationForLedgerExtensionReport(
             rawTransactionCommitMs,
             rawTransactionsTouched,
             mempoolTransactionUpdateMs,
-            mempoolTransactionsTouched
+            mempoolTransactionsTouched,
+            preparationEntriesTouched
         );
     }
 
@@ -234,6 +238,69 @@ public class LedgerExtenderService : ILedgerExtenderService
                 "Ledger initialized with network: {NetworkName}",
                 _networkConfigurationProvider.GetNetworkName()
             );
+        }
+    }
+
+    private record LedgerExtensionReport(
+        ProcessTransactionReport ProcessTransactionReport,
+        TransactionSummary FinalTransactionSummary,
+        int EntriesWritten,
+        long DbPersistenceMs
+    );
+
+    private async Task<LedgerExtensionReport> ExtendLedger(ConsistentLedgerExtension ledgerExtension, SyncTarget latestSyncTarget, CancellationToken token)
+    {
+        // Create own context for ledger extension unit of work
+        await using var ledgerExtensionDbContext = await _dbContextFactory.CreateDbContextAsync(token);
+
+        var processTransactionReport = await BulkProcessTransactionDependenciesAndEntityCreation(
+            ledgerExtensionDbContext,
+            ledgerExtension.TransactionData,
+            token
+        );
+
+        var finalTransactionSummary = ledgerExtension.TransactionData.Last().TransactionSummary;
+
+        await CreateOrUpdateLedgerStatus(ledgerExtensionDbContext, finalTransactionSummary, latestSyncTarget, token);
+
+        var (ledgerExtensionEntriesWritten, dbPersistenceMs) = await CodeStopwatch.TimeInMs(
+            () => ledgerExtensionDbContext.SaveChangesAsync(token)
+        );
+
+        return new LedgerExtensionReport(processTransactionReport, finalTransactionSummary, ledgerExtensionEntriesWritten, dbPersistenceMs);
+    }
+
+    private async Task<ProcessTransactionReport> BulkProcessTransactionDependenciesAndEntityCreation(
+        AggregatorDbContext dbContext,
+        List<CommittedTransactionData> transactions,
+        CancellationToken cancellationToken
+    )
+    {
+        var dbActionsPlanner = new DbActionsPlanner(dbContext, _entityDeterminer, cancellationToken);
+
+        var transactionContentProcessingMs = CodeStopwatch.TimeInMs(
+            () => ProcessTransactions(dbContext, dbActionsPlanner, transactions)
+        );
+
+        var dbActionsReport = await dbActionsPlanner.ProcessAllChanges();
+
+        return new ProcessTransactionReport(
+            transactionContentProcessingMs,
+            dbActionsReport.DbDependenciesLoadingMs,
+            dbActionsReport.ActionsCount,
+            dbActionsReport.LocalDbContextActionsMs
+        );
+    }
+
+    private void ProcessTransactions(AggregatorDbContext dbContext, DbActionsPlanner dbActionsPlanner, List<CommittedTransactionData> transactions)
+    {
+        foreach (var transactionData in transactions)
+        {
+            var dbTransaction = TransactionMapping.CreateLedgerTransaction(transactionData);
+            dbContext.LedgerTransactions.Add(dbTransaction);
+
+            var transactionContentProcessor = new TransactionContentProcessor(dbContext, dbActionsPlanner, _entityDeterminer, _actionInferrer);
+            transactionContentProcessor.ProcessTransactionContents(transactionData.CommittedTransaction, dbTransaction, transactionData.TransactionSummary);
         }
     }
 

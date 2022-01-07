@@ -62,9 +62,9 @@
  * permissions under this License.
  */
 
+using Common.CoreCommunications;
 using Common.Extensions;
 using DataAggregator.DependencyInjection;
-using DataAggregator.Extensions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using RadixCoreApi.Generated.Model;

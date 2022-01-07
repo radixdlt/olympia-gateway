@@ -72,14 +72,6 @@ namespace DataAggregator.LedgerExtension;
 
 public static class TransactionMapping
 {
-    public static RawTransaction CreateRawTransaction(CommittedTransaction transaction)
-    {
-        return new RawTransaction(
-            transactionIdentifierHash: transaction.TransactionIdentifier.Hash.ConvertFromHex(),
-            payload: transaction.Metadata.Hex.ConvertFromHex()
-        );
-    }
-
     public static LedgerTransaction CreateLedgerTransaction(CommittedTransactionData transactionData)
     {
         var (transaction, summary, _) = transactionData;

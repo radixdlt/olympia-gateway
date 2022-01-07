@@ -62,38 +62,14 @@
  * permissions under this License.
  */
 
-using Common.Database.Models;
-using Common.Database.Models.Ledger;
 using Common.Extensions;
 using Common.StaticHelpers;
 using DataAggregator.Exceptions;
-using RadixCoreApi.Generated.Model;
 
 namespace DataAggregator.LedgerExtension;
 
 public static class TransactionConsistency
 {
-    public static void AssertEqualParentIdentifiers(StateIdentifier parentStateIdentifierFromApi, TransactionSummary parentTransactionOverviewFromDb)
-    {
-        if (parentStateIdentifierFromApi.StateVersion != parentTransactionOverviewFromDb.StateVersion)
-        {
-            throw new InvalidLedgerCommitException(
-                $"Attempted to commit a group of transactions with parent state version {parentStateIdentifierFromApi.StateVersion}," +
-                $" but the last committed transaction is at stateVersion {parentTransactionOverviewFromDb.StateVersion}."
-            );
-        }
-
-        var parentTransactionAccumulator = parentStateIdentifierFromApi.TransactionAccumulator.ConvertFromHex();
-        if (!parentTransactionAccumulator.BytesAreEqual(parentTransactionOverviewFromDb.TransactionAccumulator))
-        {
-            throw new InconsistentLedgerException(
-                $"Attempted to commit a group of transactions with parent transaction accumulator {parentTransactionAccumulator.ToHex()}," +
-                $" (state version {parentStateIdentifierFromApi.StateVersion}) - but the last committed transaction" +
-                $" in our database had accumulator {parentTransactionOverviewFromDb.TransactionAccumulator.ToHex()}"
-            );
-        }
-    }
-
     public static void AssertChildTransactionConsistent(TransactionSummary parent, TransactionSummary child)
     {
         if (child.StateVersion != parent.StateVersion + 1)

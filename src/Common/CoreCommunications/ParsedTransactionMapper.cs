@@ -75,9 +75,9 @@ using Gateway = RadixGatewayApi.Generated.Model;
 
 public interface IParsedTransactionMapper
 {
-    Task<GatewayTransactionContents> MapToGatewayTransactionContents(Core.Transaction transaction, long stateVersionForEstimate, CancellationToken token = default);
+    Task<List<GatewayTransactionContents>> MapToGatewayTransactionContents(List<Core.Transaction> transactions, CancellationToken token = default);
 
-    Task<GatewayTransactionContents> MapToGatewayTransactionContents(Core.ConstructionParseResponse parseResponse, long stateVersionForEstimate, CancellationToken token = default);
+    Task<List<GatewayTransactionContents>> MapToGatewayTransactionContents(List<Core.ConstructionParseResponse> transactions, CancellationToken token = default);
 }
 
 public class ParsedTransactionMapper<T> : IParsedTransactionMapper
@@ -92,63 +92,90 @@ public class ParsedTransactionMapper<T> : IParsedTransactionMapper
         _actionInferrer = actionInferrer;
     }
 
-    public async Task<GatewayTransactionContents> MapToGatewayTransactionContents(Core.Transaction transaction, long stateVersionForEstimate, CancellationToken token = default)
+    public async Task<List<GatewayTransactionContents>> MapToGatewayTransactionContents(List<Core.Transaction> transactions, CancellationToken token = default)
     {
-        return new GatewayTransactionContents
-        {
-            Actions = await MapActions(transaction.OperationGroups, stateVersionForEstimate, token),
-            FeePaidSubunits = transaction.Metadata.Fee.Value,
-            MessageHex = transaction.Metadata.Message,
-        };
+        var actions = await GenerateActions(
+            transactions.Select(t => t.OperationGroups).ToList(),
+            token
+        );
+        return transactions
+            .Select((t, i) => new GatewayTransactionContents
+            {
+                Actions = actions[i],
+                FeePaidSubunits = t.Metadata.Fee.Value,
+                MessageHex = t.Metadata.Message,
+            })
+            .ToList();
     }
 
-    public async Task<GatewayTransactionContents> MapToGatewayTransactionContents(Core.ConstructionParseResponse parseResponse, long stateVersionForEstimate, CancellationToken token = default)
+    public async Task<List<GatewayTransactionContents>> MapToGatewayTransactionContents(List<Core.ConstructionParseResponse> transactions, CancellationToken token = default)
     {
-        return new GatewayTransactionContents
-        {
-            Actions = await MapActions(parseResponse.OperationGroups, stateVersionForEstimate, token),
-            FeePaidSubunits = parseResponse.Metadata.Fee.Value,
-            MessageHex = parseResponse.Metadata.Message,
-        };
+        var actions = await GenerateActions(
+            transactions.Select(t => t.OperationGroups).ToList(),
+            token
+        );
+        return transactions
+            .Select((t, i) => new GatewayTransactionContents
+            {
+                Actions = actions[i],
+                FeePaidSubunits = t.Metadata.Fee.Value,
+                MessageHex = t.Metadata.Message,
+            })
+            .ToList();
     }
 
-    private async Task<List<Gateway.Action>> MapActions(List<Core.OperationGroup> operationGroups, long stateVersionForEstimate, CancellationToken token)
+    private async Task<List<List<Gateway.Action>>> GenerateActions(List<List<Core.OperationGroup>> operationGroupsByTransaction, CancellationToken token)
     {
-        var summarisations = operationGroups
-            .Select(op => _actionInferrer.SummariseOperationGroup(op))
+        var summarisationsByTransaction = operationGroupsByTransaction
+            .Select(opGroups =>
+                opGroups
+                    .Select(op => _actionInferrer.SummariseOperationGroup(op))
+                    .ToList()
+                )
             .ToList();
 
         var allValidatorAddressesToLookup = new HashSet<string>();
 
-        foreach (var summarisation in summarisations)
+        foreach (var summarisation in summarisationsByTransaction.SelectMany(x => x))
         {
             allValidatorAddressesToLookup.AddRange(summarisation.PendingStakeValidatorAddressesSeen);
         }
 
-        var stakeSnapshotsByValidatorAddress = allValidatorAddressesToLookup.Count > 0
-            ? await CreateValidatorAddressStakeSnapshotLookup(allValidatorAddressesToLookup, stateVersionForEstimate, token)
-            : new Dictionary<string, ValidatorStakeSnapshot>();
+        var stakeSnapshotLookup = await CreateValidatorAddressStakeSnapshotLookup(allValidatorAddressesToLookup, token);
 
-        return summarisations
-            .Select(s => _actionInferrer.InferAction(false, s, stakeSnapshotsByValidatorAddress)?.Action)
-            .Where(s => s != null)
-            .Select(s => s!)
+        return summarisationsByTransaction
+            .Select(sbt => sbt
+                .SelectNonNull(s => _actionInferrer.InferAction(false, s, stakeSnapshotLookup)?.Action)
+                .ToList()
+            )
             .ToList();
     }
 
-    private async Task<Dictionary<string, ValidatorStakeSnapshot>> CreateValidatorAddressStakeSnapshotLookup(
-        HashSet<string> allValidatorAddressesToLookup,
-        long stateVersionForEstimate,
+    private async Task<Func<string, ValidatorStakeSnapshot>> CreateValidatorAddressStakeSnapshotLookup(
+        IEnumerable<string> allValidatorAddressesToLookup,
         CancellationToken token
     )
     {
-        return await _dbContext.ValidatorStakeHistoryAtVersion(stateVersionForEstimate)
-            .Where(v => allValidatorAddressesToLookup.Contains(v.Validator.Address))
+        // Npgsql optimizes Contains for List<>
+        var validatorAddressesForPostgreSQL = allValidatorAddressesToLookup.ToList();
+
+        if (validatorAddressesForPostgreSQL.Count == 0)
+        {
+            return _ => ValidatorStakeSnapshot.GetDefault();
+        }
+
+        // We always use the top of the known ledger for this, as any estimates should be as present as possible
+        var stateVersionToUse = (await _dbContext.GetTopLedgerTransaction().SingleAsync(token)).ResultantStateVersion;
+
+        var validatorStakeHistoryDictionary = await _dbContext.ValidatorStakeHistoryAtVersion(stateVersionToUse)
+            .Where(v => validatorAddressesForPostgreSQL.Contains(v.Validator.Address))
             .Include(v => v.Validator)
             .ToDictionaryAsync(
                 v => v.Validator.Address,
                 v => v.StakeSnapshot,
                 token
             );
+
+        return validatorAddress => validatorStakeHistoryDictionary[validatorAddress];
     }
 }

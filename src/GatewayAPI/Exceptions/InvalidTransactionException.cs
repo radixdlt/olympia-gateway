@@ -63,6 +63,7 @@
  */
 
 using Common.Database.Models.Mempool;
+using Common.Exceptions;
 using RadixGatewayApi.Generated.Model;
 using Core = RadixCoreApi.Generated.Model;
 
@@ -70,23 +71,28 @@ namespace GatewayAPI.Exceptions;
 
 public class InvalidTransactionException : ValidationException
 {
+    public WrappedCoreApiException? WrappedCoreApiException { get; }
+
     private InvalidTransactionException(string invalidTransactionHex, string userFacingMessage, string internalMessage)
         : base(new InvalidTransactionError(invalidTransactionHex, userFacingMessage), userFacingMessage, internalMessage)
     {
     }
 
-    private InvalidTransactionException(string invalidTransactionHex, string userFacingMessage)
+    private InvalidTransactionException(string invalidTransactionHex, string userFacingMessage, WrappedCoreApiException? wrappedCoreApiException = null)
         : base(new InvalidTransactionError(invalidTransactionHex, userFacingMessage), userFacingMessage)
     {
+        WrappedCoreApiException = wrappedCoreApiException;
     }
 
-    public static InvalidTransactionException FromInvalidTransaction(
-        string invalidTransactionHex
+    public static InvalidTransactionException FromInvalidTransactionDueToCoreApiException(
+        string invalidTransactionHex,
+        WrappedCoreApiException wrappedCoreApiException
     )
     {
         return new InvalidTransactionException(
             invalidTransactionHex,
-            $"Transaction is invalid"
+            "Transaction is invalid",
+            wrappedCoreApiException
         );
     }
 
