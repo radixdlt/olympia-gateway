@@ -131,9 +131,9 @@ jobs:
           push: true
           context: ./
 
-# TODO: Only radixdlt members can trigger these events
+# TODO: Only radixdlt members to trigger these events
   dispatch-pr-deployment-events:
-    # if: "${{ github.event_name == 'pull_request' }}"
+    if: "${{ github.event_name == 'pull_request' }}"
     runs-on: ubuntu-latest
     needs: publish-docker-pr
     steps:
