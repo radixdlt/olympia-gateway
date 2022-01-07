@@ -1,0 +1,55 @@
+name: 'Set variables'
+description: 'Set variables. Uses github context'
+runs:
+  using: "composite"
+  steps:
+    - id: set_variables
+      run: |
+        echo "GITHUB_REF $GITHUB_REF"
+        GH_EVENT_NAME="${{ github.event_name }}"
+        if [[ ! -z $GH_EVENT_NAME ]] && [[ "$GH_EVENT_NAME" == "release" ]] ;then
+            GH_EVENT_NAME="${{ github.event_name }}"
+            GH_ACTION_NAME="${{ github.event.action}}"
+            DOCKER_REPO_DATA_AGGREGATOR="eu.gcr.io/dev-container-repo/ng-data-aggregator"
+            DOCKER_REPO_GATEWAY_API="eu.gcr.io/dev-container-repo/ng-gateway-api"
+
+            case "${GH_EVENT_NAME}" in
+                release)
+                    DOCKER_REPO_DATA_AGGREGATOR="radixdlt/ng-data-aggregator"
+                    DOCKER_REPO_GATEWAY_API="radixdlt/ng-gateway-api"
+                    DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${{ github.event.release.tag_name }}"
+                    GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${{ github.event.release.tag_name }}"
+                ;;
+                *)
+                    echo "${GH_EVENT_NAME} not implemented yet"
+                    exit 1
+                ;;
+            esac
+
+            echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
+            echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
+            echo "DATA_AGGREGATOR_TAGS=$DATA_AGGREGATOR_TAGS" >> $GITHUB_ENV
+            echo "GATEWAY_API_TAGS=$GATEWAY_API_TAGS" >> $GITHUB_ENV
+            echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
+            echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
+        else
+            GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/\//-/g')
+            GIT_COMMIT=$(git log -1 --format=%h )
+            DOCKER_TAG=${GIT_BRANCH}-${GIT_COMMIT}
+
+            GH_EVENT_NAME="${{ github.event_name }}"
+            GH_ACTION_NAME="${{ github.event.action}}"
+            DOCKER_REPO_DATA_AGGREGATOR="eu.gcr.io/dev-container-repo/ng-data-aggregator"
+            DOCKER_REPO_GATEWAY_API="eu.gcr.io/dev-container-repo/ng-gateway-api"
+
+            DATA_AGGREGATOR_TAGS="${DOCKER_REPO_DATA_AGGREGATOR}:${DOCKER_TAG}"
+            GATEWAY_API_TAGS="${DOCKER_REPO_GATEWAY_API}:${DOCKER_TAG}"
+
+            echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
+            echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
+            echo "DATA_AGGREGATOR_TAGS=$DATA_AGGREGATOR_TAGS" >> $GITHUB_ENV
+            echo "GATEWAY_API_TAGS=$GATEWAY_API_TAGS" >> $GITHUB_ENV
+            echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
+            echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
+        fi
+      shell: bash
