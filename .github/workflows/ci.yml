@@ -34,8 +34,8 @@ jobs:
     if: "${{ github.event_name == 'pull_request' }}"
     runs-on: ubuntu-latest
     outputs:
-      data-aggregator-tag: ${{ steps.setup_tags.outputs.data-aggregator-tag}}
-      gateway-api-tag: ${{ steps.setup_tags.outputs.gateway-api-tag}}
+      data-aggregator-tag: ${{ steps.setup_tags.outputs.data-aggregator-tag }}
+      gateway-api-tag: ${{ steps.setup_tags.outputs.gateway-api-tag }}
     steps:
       - name: Dump context
         uses: crazy-max/ghaction-dump-context@v1
@@ -63,7 +63,7 @@ jobs:
         with:
           file: ./src/DataAggregator/Dockerfile
           TAGS: |
-            ${{ env.DATA_AGGREGATOR_TAGS }}
+            ${{ steps.setup_tags.outputs.DATA_AGGREGATOR_TAGS }}
           push: true
           context: ./
              
