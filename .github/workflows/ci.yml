@@ -57,6 +57,9 @@ jobs:
       - name: Setup tags for docker image
         id: setup_tags
         uses: ./.github/actions/set-variables
+        with:
+          github_event_name: ${{ github.event_name }}
+          github_action_name: ${{ github.event.action}}
 
       - name: Docker build and push DataAggregator
         uses: docker/build-push-action@v2
@@ -112,6 +115,9 @@ jobs:
       - name: Setup tags for docker image
         id: setup_tags
         uses: ./.github/actions/set-variables
+        with:
+          github_event_name: ${{ github.event_name }}
+          github_action_name: ${{ github.event.action}}
 
       - name: Docker build and push DataAggregator
         uses: docker/build-push-action@v2

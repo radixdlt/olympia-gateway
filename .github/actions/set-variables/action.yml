@@ -1,5 +1,12 @@
 name: 'Set variables'
 description: 'Set variables. Uses github context'
+inputs:
+  github_event_name:
+    description: "Github event name"
+    required: true
+  github_action_name:
+    description: "Github action name"
+    required: true
 outputs:
   data-aggregator-tag:
     description: "Set aggregator image tag"
@@ -19,8 +26,8 @@ runs:
     - id: set_variables
       run: |
         echo "GITHUB_REF $GITHUB_REF"
-        GH_EVENT_NAME="${{ github.event_name }}"
-        GH_ACTION_NAME="${{ github.event.action}}"
+        GH_EVENT_NAME=${{ inputs.github_event_name }}
+        GH_ACTION_NAME=${{ inputs.github_action_name }}
         GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/\//-/g')
         GIT_COMMIT=$(git log -1 --format=%h )
         DOCKER_TAG=${GIT_BRANCH}-${GIT_COMMIT}
@@ -58,7 +65,7 @@ runs:
 
             echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
             echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
-            
+
             echo "::set-output name=data_aggregator_tags::$DATA_AGGREGATOR_TAGS"
             echo "::set-output name=gateway_api_tags::$GATEWAY_API_TAGS"
             echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
