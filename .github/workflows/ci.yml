@@ -63,7 +63,7 @@ jobs:
         with:
           file: ./src/DataAggregator/Dockerfile
           TAGS: |
-            ${{ steps.setup_tags.outputs.DATA_AGGREGATOR_TAGS }}
+            ${{ steps.setup_tags.outputs.data_aggregator_tags }}
           push: true
           context: ./
              
@@ -72,7 +72,7 @@ jobs:
         with:
           file: ./src/GatewayAPI/Dockerfile
           TAGS: |
-            ${{ env.GATEWAY_API_TAGS }}
+            ${{ steps.setup_tags.outputs.gateway_api_tags }}
           push: true
           context: ./
 
@@ -118,7 +118,7 @@ jobs:
         with:
           file: ./src/DataAggregator/Dockerfile
           TAGS: |
-            ${{ env.DATA_AGGREGATOR_TAGS }}
+            ${{ steps.setup_tags.outputs.data_aggregator_tags }}
           push: true
           context: ./
              
@@ -127,7 +127,7 @@ jobs:
         with:
           file: ./src/GatewayAPI/Dockerfile
           TAGS: |
-            ${{ env.GATEWAY_API_TAGS }}
+            ${{ steps.setup_tags.outputs.gateway_api_tags }}
           push: true
           context: ./
 

@@ -3,13 +3,16 @@ description: 'Set variables. Uses github context'
 outputs:
   data-aggregator-tag:
     description: "Set aggregator tag"
-    value: ${{ steps.set_variables.outputs.data-aggregator-tag}}
+    value: ${{ steps.set_variables.outputs.data-aggregator-tag }}
   gateway-api-tag:
     description: "Set API gateway tag"
-    value: ${{ steps.set_variables.outputs.gateway-api-tag}}
-  DATA_AGGREGATOR_TAGS:
+    value: ${{ steps.set_variables.outputs.gateway-api-tag }}
+  data_aggregator_tags:
     description: "Aggregator tags"
-    value: ${{ steps.set_variables.outputs.DATA_AGGREGATOR_TAGS}}
+    value: ${{ steps.set_variables.outputs.data_aggregator_tags }}
+  gateway_api_tags:
+    description: "API gateway tags"
+    value: ${{ steps.set_variables.outputs.gateway_api_tags }}
 runs:
   using: "composite"
   steps:
@@ -40,9 +43,9 @@ runs:
 
             echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
             echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
-            echo "DATA_AGGREGATOR_TAGS=$DATA_AGGREGATOR_TAGS" >> $GITHUB_ENV
-            echo "GATEWAY_API_TAGS=$GATEWAY_API_TAGS" >> $GITHUB_ENV
 
+            echo "::set-output name=data_aggregator_tags::$DATA_AGGREGATOR_TAGS"
+            echo "::set-output name=gateway_api_tags::$GATEWAY_API_TAGS"
             echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
             echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
 
@@ -56,8 +59,8 @@ runs:
 
             echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
             echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
-            echo "::set-output name=DATA_AGGREGATOR_TAGS::$DATA_AGGREGATOR_TAGS"
-            echo "GATEWAY_API_TAGS=$GATEWAY_API_TAGS" >> $GITHUB_ENV
+            echo "::set-output name=data_aggregator_tags::$DATA_AGGREGATOR_TAGS"
+            echo "::set-output name=gateway_api_tags::$GATEWAY_API_TAGS"
             echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
             echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
         fi
