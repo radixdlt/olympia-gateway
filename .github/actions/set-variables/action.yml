@@ -2,10 +2,10 @@ name: 'Set variables'
 description: 'Set variables. Uses github context'
 outputs:
   data-aggregator-tag:
-    description: "Set aggregator tag"
+    description: "Set aggregator image tag"
     value: ${{ steps.set_variables.outputs.data-aggregator-tag }}
   gateway-api-tag:
-    description: "Set API gateway tag"
+    description: "Set API gateway image tag"
     value: ${{ steps.set_variables.outputs.gateway-api-tag }}
   data_aggregator_tags:
     description: "Aggregator tags"
@@ -20,11 +20,11 @@ runs:
       run: |
         echo "GITHUB_REF $GITHUB_REF"
         GH_EVENT_NAME="${{ github.event_name }}"
+        GH_ACTION_NAME="${{ github.event.action}}"
         GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD | sed 's/\//-/g')
         GIT_COMMIT=$(git log -1 --format=%h )
         DOCKER_TAG=${GIT_BRANCH}-${GIT_COMMIT}
         if [[ ! -z $GH_EVENT_NAME ]] && [[ "$GH_EVENT_NAME" == "release" ]] ;then
-            GH_ACTION_NAME="${{ github.event.action}}"
             DOCKER_REPO_DATA_AGGREGATOR="eu.gcr.io/dev-container-repo/ng-data-aggregator"
             DOCKER_REPO_GATEWAY_API="eu.gcr.io/dev-container-repo/ng-gateway-api"
 
@@ -50,7 +50,6 @@ runs:
             echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
 
         else
-            GH_ACTION_NAME="${{ github.event.action}}"
             DOCKER_REPO_DATA_AGGREGATOR="eu.gcr.io/dev-container-repo/ng-data-aggregator"
             DOCKER_REPO_GATEWAY_API="eu.gcr.io/dev-container-repo/ng-gateway-api"
 
@@ -59,6 +58,7 @@ runs:
 
             echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
             echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
+            
             echo "::set-output name=data_aggregator_tags::$DATA_AGGREGATOR_TAGS"
             echo "::set-output name=gateway_api_tags::$GATEWAY_API_TAGS"
             echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
