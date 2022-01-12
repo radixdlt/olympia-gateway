@@ -62,28 +62,26 @@
  * permissions under this License.
  */
 
-using DataAggregator.GlobalServices;
+using Common.Exceptions;
 
-namespace DataAggregator.GlobalWorkers;
+namespace Common.Extensions;
 
-/// <summary>
-/// Responsible for keeping the db mempool pruned.
-/// </summary>
-public class MempoolPrunerWorker : GlobalWorker
+public static class ExceptionExtensions
 {
-    private readonly IMempoolPrunerService _mempoolPrunerService;
-
-    public MempoolPrunerWorker(
-        ILogger<MempoolPrunerWorker> logger,
-        IMempoolPrunerService mempoolPrunerService
-    )
-        : base(logger, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60))
+    /// <summary>
+    /// In situations where it is safer to catch all Exceptions to protect the server's iteration loop, there are
+    /// still some explicit exceptions we know it's not safe to catch. These should be logged and re-thrown.
+    /// </summary>
+    public static bool ShouldBeConsideredAppFatal(this Exception exception)
     {
-        _mempoolPrunerService = mempoolPrunerService;
-    }
-
-    protected override async Task DoWork(CancellationToken cancellationToken)
-    {
-        await _mempoolPrunerService.PruneMempool(cancellationToken);
+        return exception is
+            // Crucial system errors
+            OutOfMemoryException or
+            StackOverflowException or
+            // Errors caused by bugs
+            ArgumentException or
+            NullReferenceException or
+            // Wrapped AppFatalException
+            AppFatalExceptionDetectedException;
     }
 }

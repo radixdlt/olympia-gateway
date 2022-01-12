@@ -72,6 +72,8 @@ public interface IGatewayApiConfiguration
     List<CoreApiNode> GetCoreNodes();
 
     string GetNetworkName();
+
+    AcceptableLedgerLag GetAcceptableLedgerLag();
 }
 
 public class GatewayApiConfiguration : IGatewayApiConfiguration
@@ -115,5 +117,13 @@ public class GatewayApiConfiguration : IGatewayApiConfiguration
         }
 
         return networkId;
+    }
+
+    public AcceptableLedgerLag GetAcceptableLedgerLag()
+    {
+        var acceptableLedgerLag = new AcceptableLedgerLag();
+        _configuration.GetSection("AcceptableLedgerLag").Bind(acceptableLedgerLag);
+
+        return acceptableLedgerLag;
     }
 }

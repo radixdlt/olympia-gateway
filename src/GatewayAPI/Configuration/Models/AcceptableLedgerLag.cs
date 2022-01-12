@@ -62,28 +62,21 @@
  * permissions under this License.
  */
 
-using DataAggregator.GlobalServices;
+using Common.Exceptions;
 
-namespace DataAggregator.GlobalWorkers;
+namespace GatewayAPI.Configuration.Models;
 
-/// <summary>
-/// Responsible for keeping the db mempool pruned.
-/// </summary>
-public class MempoolPrunerWorker : GlobalWorker
+public record AcceptableLedgerLag
 {
-    private readonly IMempoolPrunerService _mempoolPrunerService;
+    [ConfigurationKeyName("PreventReadRequestsIfDbLedgerIsBehind")]
+    public bool PreventReadRequestsIfDbLedgerIsBehind { get; set; } = true;
 
-    public MempoolPrunerWorker(
-        ILogger<MempoolPrunerWorker> logger,
-        IMempoolPrunerService mempoolPrunerService
-    )
-        : base(logger, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60))
-    {
-        _mempoolPrunerService = mempoolPrunerService;
-    }
+    [ConfigurationKeyName("ReadRequestAcceptableDbLedgerLagSeconds")]
+    public long ReadRequestAcceptableDbLedgerLagSeconds { get; set; } = 30;
 
-    protected override async Task DoWork(CancellationToken cancellationToken)
-    {
-        await _mempoolPrunerService.PruneMempool(cancellationToken);
-    }
+    [ConfigurationKeyName("PreventConstructionRequestsIfDbLedgerIsBehind")]
+    public bool PreventConstructionRequestsIfDbLedgerIsBehind { get; set; } = true;
+
+    [ConfigurationKeyName("ConstructionRequestsAcceptableDbLedgerLagSeconds")]
+    public long ConstructionRequestsAcceptableDbLedgerLagSeconds { get; set; } = 30;
 }

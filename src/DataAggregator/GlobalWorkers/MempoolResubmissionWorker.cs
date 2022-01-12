@@ -69,7 +69,7 @@ namespace DataAggregator.GlobalWorkers;
 /// <summary>
 /// Responsible for keeping the db mempool pruned.
 /// </summary>
-public class MempoolResubmissionWorker : LoopedWorkerBase
+public class MempoolResubmissionWorker : GlobalWorker
 {
     private readonly IMempoolResubmissionService _mempoolResubmissionService;
 
@@ -82,8 +82,8 @@ public class MempoolResubmissionWorker : LoopedWorkerBase
         _mempoolResubmissionService = mempoolResubmissionService;
     }
 
-    protected override async Task DoWork(CancellationToken stoppingToken)
+    protected override async Task DoWork(CancellationToken cancellationToken)
     {
-        await _mempoolResubmissionService.RunBatchOfResubmissions(stoppingToken);
+        await _mempoolResubmissionService.RunBatchOfResubmissions(cancellationToken);
     }
 }

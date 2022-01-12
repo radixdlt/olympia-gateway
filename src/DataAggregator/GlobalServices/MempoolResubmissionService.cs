@@ -95,6 +95,24 @@ public class MempoolResubmissionService : IMempoolResubmissionService
             "Current number of transactions which have dropped out of mempools and need resubmitting."
         );
 
+    private static readonly Counter _dbMempoolTransactionsMarkedAsResolvedButUnknownStatusCount = Metrics
+        .CreateCounter(
+            "ng_db_mempool_transactions_marked_resolved_but_unknown_status_count",
+            "Number of mempool transactions marked as resolved but with an as-yet-unknown status during resubmission"
+        );
+
+    private static readonly Counter _dbMempoolTransactionsMarkedAsFailedDuringResubmissionCount = Metrics
+        .CreateCounter(
+            "ng_db_mempool_transactions_marked_failed_during_resubmission_count",
+            "Number of mempool transactions marked as failed due to error during resubmission"
+        );
+
+    private static readonly Counter _dbMempoolTransactionsMarkedAsAssumedInNodeMempoolAfterResubmissionCount = Metrics
+        .CreateCounter(
+            "ng_db_mempool_transactions_assumed_in_node_mempool_after_resubmission_count",
+            "Number of mempool transactions marked as InNodeMempool after resubmission"
+        );
+
     private static readonly Counter _transactionResubmissionAttemptCount = Metrics
         .CreateCounter(
             "ng_construction_transaction_resubmission_attempt_count",
@@ -168,7 +186,7 @@ public class MempoolResubmissionService : IMempoolResubmissionService
         }
         else if (totalTransactionsNeedingResubmission <= BatchSize)
         {
-            _logger.LogInformation("Preparing to resubmit {BatchSize} transactions", totalTransactionsNeedingResubmission);
+            _logger.LogInformation("Preparing to resubmit {TransactionsCount} transactions", totalTransactionsNeedingResubmission);
         }
         else
         {
@@ -194,15 +212,19 @@ public class MempoolResubmissionService : IMempoolResubmissionService
                     // If we're not synced up, we can't be sure if the double spend from the node is actually just the
                     // transaction itself having already hit the ledger! Let's just assume it submitted correctly and
                     // resubmit.
+
+                    _dbMempoolTransactionsMarkedAsResolvedButUnknownStatusCount.Inc();
                     transaction.MarkAsResolvedButUnknownAfterSubmittedToNode(nodeName, submittedAt);
                 }
                 else
                 {
+                    _dbMempoolTransactionsMarkedAsFailedDuringResubmissionCount.Inc();
                     transaction.MarkAsFailedAfterSubmittedToNode(nodeName, failureReason!.Value, failureExplanation!, submittedAt);
                 }
             }
             else
             {
+                _dbMempoolTransactionsMarkedAsAssumedInNodeMempoolAfterResubmissionCount.Inc();
                 transaction.MarkAsAssumedSuccessfullySubmittedToNode(nodeName, submittedAt);
             }
         }
@@ -285,9 +307,9 @@ public class MempoolResubmissionService : IMempoolResubmissionService
         catch (WrappedCoreApiException<SubstateDependencyNotFoundError> ex)
         {
             _transactionResubmissionErrorCount.Inc();
-            _transactionResubmissionResolutionByResultCount.WithLabels("double_spend").Inc();
+            _transactionResubmissionResolutionByResultCount.WithLabels("substate_missing_or_already_used").Inc();
             _logger.LogDebug(
-                "Dropping transaction because of a double spend - possibly it's already been committed. Substate Identifier: {Substate}",
+                "Dropping transaction because a substate identifier it used is missing or already downed - possibly it's already been committed. Substate Identifier: {Substate}",
                 ex.Error.SubstateIdentifierNotFound.Identifier
             );
             var failureExplanation = "Double spend on resubmission";

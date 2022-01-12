@@ -73,6 +73,8 @@ public static class DbSetExtensions
     /// <para>
     /// This is designed to replace the use of "IN", improving performance, and allowing for support matching on tuples.
     /// It does this by using a virtual join, inspired by https://singlebrook.com/2018/05/23/when-to-throw-in-out/.
+    ///
+    /// NOTE - This can be replaced by using UNNEST like we do in BulkAccountValidatorStakeHistoryAtVersion.
     /// </para>
     /// <para>
     /// IMPORTANT NOTES:

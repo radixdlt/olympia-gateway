@@ -62,6 +62,7 @@
  * permissions under this License.
  */
 
+using Common.Extensions;
 using DataAggregator.Configuration.Models;
 using DataAggregator.DependencyInjection;
 using DataAggregator.NodeScopedServices;
@@ -72,7 +73,7 @@ public interface INodeWorkersRunnerRegistry
 {
     Task EnsureCorrectNodeServicesRunning(List<NodeAppSettings> nodes, CancellationToken cancellationToken);
 
-    Task StopAllWorkers(CancellationToken cancellationToken);
+    Task StopAllWorkers(CancellationToken cancellationToken = default);
 }
 
 public class NodeWorkersRunnerRegistry : INodeWorkersRunnerRegistry
@@ -119,7 +120,20 @@ public class NodeWorkersRunnerRegistry : INodeWorkersRunnerRegistry
     {
         lock (_servicesMapLock)
         {
-            return _servicesMap.Keys.Except(enabledNodesSettings).ToList();
+            return _servicesMap
+                .SelectNonNull(kvp =>
+                {
+                    var (nodeAppSettings, nodeWorkersRunner) = kvp;
+
+                    // If the workers get stopped for some reason, then we should stop them and clear them from the
+                    // service map so they can be restarted.
+                    var workersAreStopped = nodeWorkersRunner.Status == NodeWorkersRunnerStatus.Stopped;
+                    var workersAreUnhealthy = !nodeWorkersRunner.IsHealthy();
+                    var nodeIsNoLongerEnabledWithTheseSettings = !enabledNodesSettings.Contains(nodeAppSettings);
+
+                    return (workersAreStopped || workersAreUnhealthy || nodeIsNoLongerEnabledWithTheseSettings) ? nodeAppSettings : null;
+                })
+                .ToList();
         }
     }
 
@@ -160,6 +174,12 @@ public class NodeWorkersRunnerRegistry : INodeWorkersRunnerRegistry
         }
         catch (Exception ex)
         {
+            if (ex.ShouldBeConsideredAppFatal())
+            {
+                _logger.LogError(ex, "Unexpected app-fatal error initializing or starting up services for node: {NodeName}. Re-throwing", node.Name);
+                throw;
+            }
+
             _logger.LogError(
                 ex,
                 "Error initializing or starting up services for node: {NodeName}. We won't try again for {ErrorStartupBlockTimeSeconds} seconds. Now clearing up...",
@@ -181,7 +201,7 @@ public class NodeWorkersRunnerRegistry : INodeWorkersRunnerRegistry
         return Task.WhenAll(nodes.Select(n => StopNodeWorkers(n, cancellationToken)));
     }
 
-    private async Task StopNodeWorkers(NodeAppSettings node, CancellationToken cancellationToken)
+    private async Task StopNodeWorkers(NodeAppSettings node, CancellationToken nonGracefulShutdownToken)
     {
         if (!_servicesMap.TryGetValue(node, out var nodeWorkersRunner))
         {
@@ -193,16 +213,21 @@ public class NodeWorkersRunnerRegistry : INodeWorkersRunnerRegistry
 
         try
         {
-            await nodeWorkersRunner.StopWorkersSafe(cancellationToken);
+            await nodeWorkersRunner.StopAllSafe(nonGracefulShutdownToken);
             _logger.LogInformation("Node workers stopped successfully for node {NodeName}", node.Name);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error stopping services for node: {NodeName}. Now clearing up regardless", node.Name);
+            if (ex.ShouldBeConsideredAppFatal())
+            {
+                _logger.LogError(ex, "Unexpected app-fatal error stopping services for node: {NodeName}. Re-throwing", node.Name);
+                throw;
+            }
+
+            _logger.LogError(ex, "Unexpected error stopping services for node: {NodeName}. Now clearing up regardless", node.Name);
         }
         finally
         {
-            // If Disposal fails, panic
             nodeWorkersRunner.Dispose();
         }
 

@@ -62,12 +62,16 @@
  * permissions under this License.
  */
 
-namespace DataAggregator.NodeScopedWorkers;
+using DataAggregator.NodeScopedWorkers;
 
-/// <summary>
-/// A marker interface for NodeWorkers, so Dependency Injection can pick them up.
-/// </summary>
-public interface INodeWorker : IHostedService, IDisposable
+namespace DataAggregator.GlobalWorkers;
+
+public abstract class GlobalWorker : LoopedWorkerBase
 {
-    public bool IsEnabled();
+    protected GlobalWorker(ILogger logger, TimeSpan minDelayBetweenLoops, TimeSpan minDelayAfterErrorLoop, TimeSpan minDelayBetweenInfoLogs)
+        // If a GlobalWorker run by ASP.NET Core AddHosted errors / faults it can't be restarted, so we need to
+        // crash the application so that it can be automatically restarted.
+        : base(logger, BehaviourOnFault.ApplicationExit, minDelayBetweenLoops, minDelayAfterErrorLoop, minDelayBetweenInfoLogs)
+    {
+    }
 }

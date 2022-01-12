@@ -62,28 +62,30 @@
  * permissions under this License.
  */
 
-using DataAggregator.GlobalServices;
+using DataAggregator.GlobalWorkers;
 
-namespace DataAggregator.GlobalWorkers;
+namespace DataAggregator.NodeScopedWorkers;
 
 /// <summary>
-/// Responsible for keeping the db mempool pruned.
+/// A marker interface for NodeWorkers - Dependency Injection will pick each of them up to start them in the NodeWorkersRunner.
 /// </summary>
-public class MempoolPrunerWorker : GlobalWorker
+public interface INodeWorker : ILoopedWorkerBase
 {
-    private readonly IMempoolPrunerService _mempoolPrunerService;
+    public bool IsEnabledByNodeConfiguration();
+}
 
-    public MempoolPrunerWorker(
-        ILogger<MempoolPrunerWorker> logger,
-        IMempoolPrunerService mempoolPrunerService
-    )
-        : base(logger, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60))
+public abstract class NodeWorker : LoopedWorkerBase, INodeWorker
+{
+    protected NodeWorker(ILogger logger, TimeSpan minDelayBetweenLoops, TimeSpan minDelayAfterErrorLoop, TimeSpan minDelayBetweenInfoLogs)
+        // On crash, the NodeWorkers will get restarted by the NodeWorkersRunner / Registry
+        : base(logger, BehaviourOnFault.Nothing, minDelayBetweenLoops, minDelayAfterErrorLoop, minDelayBetweenInfoLogs)
     {
-        _mempoolPrunerService = mempoolPrunerService;
     }
 
-    protected override async Task DoWork(CancellationToken cancellationToken)
+    public abstract bool IsEnabledByNodeConfiguration();
+
+    public override bool IsCurrentlyEnabled()
     {
-        await _mempoolPrunerService.PruneMempool(cancellationToken);
+        return IsEnabledByNodeConfiguration();
     }
 }

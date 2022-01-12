@@ -155,14 +155,14 @@ public class ExceptionHandler : IExceptionHandler
                     _logger.Log(
                         _knownGatewayErrorLogLevel,
                         mappedException,
-                        "Recognised / mapped exception from upstream core API [RequestTrace={TraceId}]",
+                        "Returning mapped exception from upstream core API [RequestTrace={TraceId}]",
                         traceId
                     );
                     return mappedException;
                 }
 
                 _logger.Log(
-                    LogLevel.Information,
+                    LogLevel.Warning,
                     exception,
                     "Unhandled error response from upstream core API [RequestTrace={TraceId}]",
                     traceId
@@ -175,9 +175,9 @@ public class ExceptionHandler : IExceptionHandler
             // CoreClient.ApiException is returned if we get a 500 from upstream but couldn't extract a WrappedCoreApiException
             case CoreClient.ApiException coreApiException:
                 _logger.Log(
-                    LogLevel.Information,
+                    LogLevel.Warning,
                     exception,
-                    "Unhandled error response from upstream core API [RequestTrace={TraceId}]",
+                    "Unhandled error response from upstream core API, which didn't parse correctly into a known ErrorType we could wrap [RequestTrace={TraceId}]",
                     traceId
                 );
                 return InternalServerException.OfUnhandledCoreApiException(

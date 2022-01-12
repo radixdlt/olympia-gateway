@@ -76,6 +76,6 @@ public class NotEnoughTokensForUnstakeException : ValidationException
 
     public static string GetErrorMessage(TokenAmount requestedAmount, AccountStakeEntry stake, AccountStakeEntry pendingStake)
     {
-        return $"You requested to unstake {requestedAmount.AsXrdString()} but only have estimated {stake.DelegatedStake.AsXrdString()} staked. You also have {pendingStake.DelegatedStake.AsXrdString()} stake pending, which will be available to unstake at the end of the next epoch";
+        return $"You requested to unstake {requestedAmount.AsXrdString()} but only have estimated {stake.DelegatedStake.AsXrdString()} staked. You also have {pendingStake.DelegatedStake.AsXrdString()} stake pending, which will be available to unstake at the end of the next epoch. Epochs last approx 30 minutes.";
     }
 }

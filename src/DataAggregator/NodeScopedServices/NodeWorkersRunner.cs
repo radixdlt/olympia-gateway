@@ -62,7 +62,10 @@
  * permissions under this License.
  */
 
+using Common.Exceptions;
+using Common.Extensions;
 using DataAggregator.NodeScopedWorkers;
+using NodaTime;
 
 namespace DataAggregator.NodeScopedServices;
 
@@ -82,7 +85,15 @@ public enum NodeWorkersRunnerStatus
 /// </summary>
 public class NodeWorkersRunner : IDisposable
 {
-    public NodeWorkersRunnerStatus Status { get; private set; }
+    public NodeWorkersRunnerStatus Status
+    {
+        get => _status;
+        private set
+        {
+            _lastStatusChange = SystemClock.Instance.GetCurrentInstant();
+            _status = value;
+        }
+    }
 
     private readonly List<INodeInitializer> _initializers;
 
@@ -92,11 +103,16 @@ public class NodeWorkersRunner : IDisposable
 
     private readonly ILogger<NodeWorkersRunner> _logger;
 
-    private CancellationTokenSource? _cancellationTokenSource;
-
     private IServiceScope? _nodeDependencyInjectionScope;
 
+    private Instant _lastStatusChange;
+
+    // Items needing disposal
+    private CancellationTokenSource? _cancellationTokenSource;
+    private CancellationTokenSource? _combinedInitializeCancellationTokenSource;
+    private CancellationTokenRegistration? _runningWorkersCancellationTokenRegistration;
     private IDisposable? _logScope;
+    private NodeWorkersRunnerStatus _status;
 
     public NodeWorkersRunner(ILogger<NodeWorkersRunner> logger, IServiceScope nodeDependencyInjectionScope, IDisposable logScope)
     {
@@ -105,10 +121,51 @@ public class NodeWorkersRunner : IDisposable
         _logScope = logScope;
         _cancellationTokenSource = new CancellationTokenSource();
         _initializers = nodeDependencyInjectionScope.ServiceProvider.GetServices<INodeInitializer>().ToList();
-        _workers = nodeDependencyInjectionScope.ServiceProvider.GetServices<INodeWorker>()
-            .Where(nw => nw.IsEnabled())
-            .ToList();
+        _workers = nodeDependencyInjectionScope.ServiceProvider.GetServices<INodeWorker>().ToList();
         Status = NodeWorkersRunnerStatus.Uninitialized;
+    }
+
+    /// <summary>
+    /// If this isn't true, at least one worker has crashed - NodeWorkersRunner needs to be stopped, recreated and restarted.
+    /// </summary>
+    public bool IsHealthy()
+    {
+        const int GraceSecondsBeforeMarkingStalled = 10;
+
+        var isRunningOrNotStalled = Status == NodeWorkersRunnerStatus.Running || _lastStatusChange.WithinPeriodOfNow(Duration.FromSeconds(GraceSecondsBeforeMarkingStalled));
+        if (!isRunningOrNotStalled)
+        {
+            _logger.LogWarning(
+                "Marked as unhealthy because current status is {Status} and last status changes was at {LastStatusChange}, longer than {GracePeriod}s ago - suggesting that the WorkersRegistry hasn't properly handled something, and these NodeWorkers should be restarted",
+                Status,
+                _lastStatusChange,
+                GraceSecondsBeforeMarkingStalled
+            );
+            return false;
+        }
+
+        var allWorkersAreHealthy = _workers.All(w => !w.IsFaulted && !w.IsStoppedSuccessfully);
+        if (!allWorkersAreHealthy)
+        {
+            _logger.LogWarning(
+                "Marked as unhealthy because at least one worker is faulted or stopped, so these NodeWorkers should be restarted by the WorkersRegistry. Worker states: {WorkerStates}",
+                string.Join(", ", _workers.Select(w => $"{w.GetType().Name}: [Faulted={w.IsFaulted}, Exception={w.FaultedException?.GetType().Name ?? "None"}, Stopped={w.IsStoppedSuccessfully}]"))
+            );
+
+            var appFatalFaultedExceptions = _workers
+                .SelectNonNull(w => w.FaultedException)
+                .Where(w => w.ShouldBeConsideredAppFatal())
+                .ToList();
+
+            if (appFatalFaultedExceptions.Any())
+            {
+                throw new AppFatalExceptionDetectedException(appFatalFaultedExceptions.First());
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -138,12 +195,19 @@ public class NodeWorkersRunner : IDisposable
             Status = NodeWorkersRunnerStatus.Initializing;
         }
 
-        using var combinedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _combinedInitializeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var combinedCancellationToken = _combinedInitializeCancellationTokenSource.Token;
 
-        // ReSharper disable once AccessToDisposedClosure
-        // Should be safe because Task.WhenAll waits till all tasks have run (even if one faults)
-        // So the Dispose call will happen after all references to the Tokens have been used up
-        await Task.WhenAll(_initializers.Select(i => i.Initialize(combinedCancellationSource.Token)));
+        try
+        {
+            await Task.WhenAll(_initializers.Select(i => i.Initialize(combinedCancellationToken)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex, "At least one initializer errored - all workers for the node will now be stopped");
+            await StopAllSafe(CancellationToken.None);
+            throw;
+        }
 
         lock (_statusLock)
         {
@@ -191,12 +255,21 @@ public class NodeWorkersRunner : IDisposable
             Status = NodeWorkersRunnerStatus.Starting;
         }
 
-        using var combinedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // If the cancellation token goes off,
+#pragma warning disable CS4014 // Cannot await StopAllSafe
+        _runningWorkersCancellationTokenRegistration = cancellationToken.Register(() => StopAllSafe(CancellationToken.None));
+#pragma warning restore CS4014
 
-        // ReSharper disable once AccessToDisposedClosure
-        // Should be safe because Task.WhenAll waits till all tasks have run (even if one faults)
-        // So the Dispose call will happen after all references to the Tokens have been used up
-        await Task.WhenAll(_workers.Select(w => w.StartAsync(combinedCancellationSource.Token)));
+        try
+        {
+            await Task.WhenAll(_workers.Select(w => w.StartAsync(cancellationToken)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex, "At least one worker start errored - all workers for the node will now be stopped");
+            await StopAllSafe(CancellationToken.None);
+            throw;
+        }
 
         lock (_statusLock)
         {
@@ -221,15 +294,42 @@ public class NodeWorkersRunner : IDisposable
     /// <summary>
     ///  Stops all workers. It's safe to call this multiple times.
     /// </summary>
-    public async Task StopWorkersSafe(CancellationToken nonGracefulShutdownToken)
+    public async Task StopAllSafe(CancellationToken nonGracefulShutdownToken = default)
     {
-        if (EnsureServicesAreStoppingOrStoppedAndReturnTrueIfAlreadyStopped())
+        lock (_statusLock)
         {
-            return;
+            switch (Status)
+            {
+                case NodeWorkersRunnerStatus.Uninitialized:
+                case NodeWorkersRunnerStatus.Initialized:
+                    Status = NodeWorkersRunnerStatus.Stopped;
+                    return;
+                case NodeWorkersRunnerStatus.Initializing:
+                case NodeWorkersRunnerStatus.Starting:
+                    Status = NodeWorkersRunnerStatus.Stopping;
+                    SafelyCancelInitializationOrStartup();
+                    break;
+                case NodeWorkersRunnerStatus.Running:
+                    Status = NodeWorkersRunnerStatus.Stopping;
+                    break;
+                case NodeWorkersRunnerStatus.Stopping:
+                    break;
+                case NodeWorkersRunnerStatus.Stopped:
+                    return;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
-        // StopAsync should be safe to be called multiple times, and will wait till each service stops
-        await Task.WhenAll(_workers.Select(w => w.StopAsync(nonGracefulShutdownToken)));
+        try
+        {
+            // StopAsync should be safe to be called multiple times, and will wait till the service stops
+            await Task.WhenAll(_workers.Select(w => w.StopAsync(nonGracefulShutdownToken)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex, "Workers errored when they tried to be stopped. Proceeding under the assumption they were stopped successfully");
+        }
 
         lock (_statusLock)
         {
@@ -240,39 +340,34 @@ public class NodeWorkersRunner : IDisposable
     public void Dispose()
     {
         _logger.LogDebug("Disposing...");
-        EnsureServicesAreStoppingOrStoppedAndReturnTrueIfAlreadyStopped();
+
+        if (Status != NodeWorkersRunnerStatus.Stopped)
+        {
+            _logger.LogError("Dispose() was called before the workers were stopped - the workers may continue to run");
+        }
+
         _cancellationTokenSource?.Dispose();
         _cancellationTokenSource = null;
         _nodeDependencyInjectionScope?.Dispose();
         _nodeDependencyInjectionScope = null;
+        _combinedInitializeCancellationTokenSource?.Dispose();
+        _combinedInitializeCancellationTokenSource = null;
+        _runningWorkersCancellationTokenRegistration?.Dispose();
+        _runningWorkersCancellationTokenRegistration = null;
         _logScope?.Dispose();
         _logScope = null;
-        _logger.LogDebug("Disposing complete");
+        GC.SuppressFinalize(this);
     }
 
-    private bool EnsureServicesAreStoppingOrStoppedAndReturnTrueIfAlreadyStopped()
+    private void SafelyCancelInitializationOrStartup()
     {
-        lock (_statusLock)
+        try
         {
-            switch (Status)
-            {
-                case NodeWorkersRunnerStatus.Uninitialized:
-                case NodeWorkersRunnerStatus.Initialized:
-                    Status = NodeWorkersRunnerStatus.Stopped;
-                    return true;
-                case NodeWorkersRunnerStatus.Initializing:
-                case NodeWorkersRunnerStatus.Starting:
-                case NodeWorkersRunnerStatus.Running:
-                    Status = NodeWorkersRunnerStatus.Stopping;
-                    _cancellationTokenSource?.Cancel();
-                    return false;
-                case NodeWorkersRunnerStatus.Stopping:
-                    return false;
-                case NodeWorkersRunnerStatus.Stopped:
-                    return true;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            _cancellationTokenSource?.Cancel();
+        }
+        catch (AggregateException ex)
+        {
+            _logger.LogInformation(ex, "Errors thrown whilst cancelling initialization or startup");
         }
     }
 }

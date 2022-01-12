@@ -103,6 +103,12 @@ public class SubmissionTrackingService : ISubmissionTrackingService
             "Number of mempool transactions added to the DB due to being submitted to the gateway"
         );
 
+    private static readonly Counter _dbMempoolTransactionsMarkedAsFailedDuringInitialSubmissionCount = Metrics
+        .CreateCounter(
+            "ng_db_mempool_transactions_marked_failed_from_initial_submission_count",
+            "Number of mempool transactions marked as failed during initial submission to a node"
+        );
+
     private readonly GatewayReadWriteDbContext _dbContext;
     private readonly IParsedTransactionMapper _parsedTransactionMapper;
 
@@ -187,6 +193,7 @@ public class SubmissionTrackingService : ISubmissionTrackingService
             throw new Exception($"Could not find mempool transaction {transactionIdentifierHash.ToHex()} to mark it as failed");
         }
 
+        _dbMempoolTransactionsMarkedAsFailedDuringInitialSubmissionCount.Inc();
         mempoolTransaction.MarkAsFailed(failureReason, failureExplanation);
 
         await _dbContext.SaveChangesAsync();

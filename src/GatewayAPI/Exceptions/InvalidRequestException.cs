@@ -68,12 +68,12 @@ namespace GatewayAPI.Exceptions;
 
 public class InvalidRequestException : ValidationException
 {
-    private InvalidRequestException(GatewayError gatewayError, string userFacingMessage, string internalMessage)
+    private InvalidRequestException(InvalidRequestError gatewayError, string userFacingMessage, string internalMessage)
         : base(gatewayError, userFacingMessage, internalMessage)
     {
     }
 
-    private InvalidRequestException(GatewayError gatewayError, string userFacingMessage)
+    private InvalidRequestException(InvalidRequestError gatewayError, string userFacingMessage)
         : base(gatewayError, userFacingMessage)
     {
     }

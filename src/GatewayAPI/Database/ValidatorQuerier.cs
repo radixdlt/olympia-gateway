@@ -62,7 +62,6 @@
  * permissions under this License.
  */
 
-using Common.Addressing;
 using Common.Database;
 using Common.Database.Models.Ledger.History;
 using Common.Database.Models.Ledger.Substates;
@@ -70,7 +69,6 @@ using GatewayAPI.ApiSurface;
 using GatewayAPI.Services;
 using Microsoft.EntityFrameworkCore;
 using RadixGatewayApi.Generated.Model;
-using Api = RadixGatewayApi.Generated.Model;
 using Db = Common.Database.Models.Ledger.Normalization;
 using TokenAmount = Common.Numerics.TokenAmount;
 
@@ -189,14 +187,11 @@ public class ValidatorQuerier : IValidatorQuerier
     {
         var stateVersion = ledgerState._Version;
 
-        return await (
-            from validatorStakeHistory in _dbContext.ValidatorStakeHistoryAtVersion(stateVersion)
-            where validatorIds.Contains(validatorStakeHistory.ValidatorId)
-            select validatorStakeHistory
-        ).ToDictionaryAsync(
-            v => v.ValidatorId,
-            v => v.StakeSnapshot
-        );
+        return await _dbContext.ValidatorStakeHistoryAtVersionForValidatorIds(validatorIds, stateVersion)
+            .ToDictionaryAsync(
+                v => v.ValidatorId,
+                v => v.StakeSnapshot
+            );
     }
 
     private record PropertiesAndOwner(ValidatorProperties Properties, long? OwnerId);
@@ -231,7 +226,7 @@ public class ValidatorQuerier : IValidatorQuerier
         var validatorOwnerIds = validatorDataSubstatesByValidatorId
             .Where(v => v.Value.ContainsKey(ValidatorDataSubstateType.ValidatorData))
             .Select(v => v.Value[ValidatorDataSubstateType.ValidatorData].Data.ValidatorData!.OwnerId)
-            .ToHashSet();
+            .ToList();
 
         var validatorOwnerAddresses = await _dbContext.Accounts
             .Where(a => validatorOwnerIds.Contains(a.Id))

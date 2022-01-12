@@ -67,6 +67,7 @@ using Common.Database.Models.Ledger;
 using Common.Database.Models.SingleEntries;
 using Common.Extensions;
 using GatewayAPI.ApiSurface;
+using GatewayAPI.Configuration;
 using GatewayAPI.Exceptions;
 using GatewayAPI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -79,28 +80,34 @@ public interface ILedgerStateQuerier
 {
     Task<GatewayResponse> GetGatewayState();
 
-    Task<LedgerState> GetLedgerState(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier);
+    Task<LedgerState> GetValidLedgerStateForReadRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier);
 
-    Task<LedgerState> GetTopOfLedgerState();
+    Task<LedgerState> GetValidLedgerStateForConstructionRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier);
 
     void AssertMatchingNetwork(NetworkIdentifier networkIdentifier);
 }
 
 public class LedgerStateQuerier : ILedgerStateQuerier
 {
+    private readonly ILogger<LedgerStateQuerier> _logger;
     private readonly GatewayReadOnlyDbContext _dbContext;
     private readonly IValidations _validations;
     private readonly INetworkConfigurationProvider _networkConfigurationProvider;
+    private readonly IGatewayApiConfiguration _gatewayApiConfiguration;
 
     public LedgerStateQuerier(
+        ILogger<LedgerStateQuerier> logger,
         GatewayReadOnlyDbContext dbContext,
         IValidations validations,
-        INetworkConfigurationProvider networkConfigurationProvider
+        INetworkConfigurationProvider networkConfigurationProvider,
+        IGatewayApiConfiguration gatewayApiConfiguration
     )
     {
+        _logger = logger;
         _dbContext = dbContext;
         _validations = validations;
         _networkConfigurationProvider = networkConfigurationProvider;
+        _gatewayApiConfiguration = gatewayApiConfiguration;
     }
 
     public async Task<GatewayResponse> GetGatewayState()
@@ -123,20 +130,72 @@ public class LedgerStateQuerier : ILedgerStateQuerier
     }
 
     // So that we don't forget to check the network name, add the assertion in here.
-    public async Task<LedgerState> GetLedgerState(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier)
+    public async Task<LedgerState> GetValidLedgerStateForReadRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier)
     {
         AssertMatchingNetwork(networkIdentifier);
-        return await GetLedgerState(atLedgerStateIdentifier);
+        var ledgerStateReport = await GetLedgerState(atLedgerStateIdentifier);
+        var ledgerState = ledgerStateReport.LedgerState;
+
+        if (!ResolvesToTopOfLedger(atLedgerStateIdentifier))
+        {
+            return ledgerState;
+        }
+
+        var acceptableLedgerLag = _gatewayApiConfiguration.GetAcceptableLedgerLag();
+        var timestampDiff = SystemClock.Instance.GetCurrentInstant() - ledgerStateReport.RoundTimestamp;
+        if (timestampDiff.TotalSeconds <= acceptableLedgerLag.ReadRequestAcceptableDbLedgerLagSeconds)
+        {
+            return ledgerState;
+        }
+
+        if (acceptableLedgerLag.PreventReadRequestsIfDbLedgerIsBehind)
+        {
+            throw NotSyncedUpException.FromRequest(
+                NotSyncedUpRequestType.Read,
+                timestampDiff,
+                acceptableLedgerLag.ReadRequestAcceptableDbLedgerLagSeconds
+            );
+        }
+
+        _logger.LogWarning(
+            "The DB ledger is currently {HumanReadableDelay} behind, so the read query will not be up to date with the current ledger",
+            timestampDiff.FormatPositiveDurationHumanReadable()
+        );
+
+        return ledgerState;
     }
 
-    public async Task<LedgerState> GetTopOfLedgerState()
+    public async Task<LedgerState> GetValidLedgerStateForConstructionRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier)
     {
-        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetTopLedgerTransaction());
+        AssertMatchingNetwork(networkIdentifier);
+        var ledgerStateReport = await GetLedgerState(atLedgerStateIdentifier);
+        var ledgerState = ledgerStateReport.LedgerState;
 
-        if (ledgerState == null)
+        if (!ResolvesToTopOfLedger(atLedgerStateIdentifier))
         {
-            throw new InvalidStateException("There are no transactions in the database");
+            return ledgerState;
         }
+
+        var acceptableLedgerLag = _gatewayApiConfiguration.GetAcceptableLedgerLag();
+        var timestampDiff = SystemClock.Instance.GetCurrentInstant() - ledgerStateReport.RoundTimestamp;
+        if (timestampDiff.TotalSeconds <= acceptableLedgerLag.ConstructionRequestsAcceptableDbLedgerLagSeconds)
+        {
+            return ledgerState;
+        }
+
+        if (acceptableLedgerLag.PreventConstructionRequestsIfDbLedgerIsBehind)
+        {
+            throw NotSyncedUpException.FromRequest(
+                NotSyncedUpRequestType.Construction,
+                timestampDiff,
+                acceptableLedgerLag.ConstructionRequestsAcceptableDbLedgerLagSeconds
+            );
+        }
+
+        _logger.LogWarning(
+            "The DB ledger is currently {HumanReadableDelay} behind, so the construction query may be validated incorrectly (or built incorrectly using historic stake records for unstake calculations)",
+            timestampDiff.FormatPositiveDurationHumanReadable()
+        );
 
         return ledgerState;
     }
@@ -165,21 +224,41 @@ public class LedgerStateQuerier : ILedgerStateQuerier
         return ledgerStatus;
     }
 
-    private Task<LedgerState> GetLedgerState(PartialLedgerStateIdentifier? at = null)
+    private record LedgerStateReport(LedgerState LedgerState, Instant RoundTimestamp);
+
+    private async Task<LedgerStateReport> GetLedgerState(PartialLedgerStateIdentifier? at = null)
     {
         return at switch
         {
-            null or { _Version: 0, Timestamp: null, Epoch: 0, Round: 0 } => GetTopOfLedgerState(),
-            { _Version: > 0, Timestamp: null, Epoch: 0, Round: 0 } => GetLedgerStateBeforeStateVersion(at._Version),
-            { _Version: 0, Timestamp: { }, Epoch: 0, Round: 0 } => GetLedgerStateBeforeTimestamp(at.Timestamp),
-            { _Version: 0, Timestamp: null, Epoch: > 0, Round: >= 0 } => GetLedgerStateAtEpochAndRound(at.Epoch, at.Round),
+            null or { _Version: 0, Timestamp: null, Epoch: 0, Round: 0 } => await GetTopOfLedgerStateReport(), // Duplicates line in ResolvesToTopOfLedger below - change both together!
+            { _Version: > 0, Timestamp: null, Epoch: 0, Round: 0 } => await GetLedgerStateBeforeStateVersion(at._Version),
+            { _Version: 0, Timestamp: { }, Epoch: 0, Round: 0 } => await GetLedgerStateBeforeTimestamp(at.Timestamp),
+            { _Version: 0, Timestamp: null, Epoch: > 0, Round: >= 0 } => await GetLedgerStateAtEpochAndRound(at.Epoch, at.Round),
             _ => throw InvalidRequestException.FromOtherError(
                 "The at_state_identifier was not either (A) missing (B) with only a state_version; (C) with only a Timestamp; (D) with only an Epoch; or (E) with only an Epoch and Round"
             ),
         };
     }
 
-    private async Task<LedgerState> GetLedgerStateBeforeStateVersion(long stateVersion)
+    private bool ResolvesToTopOfLedger(PartialLedgerStateIdentifier? at = null)
+    {
+        // Duplicates line in switch above - change both together!
+        return at is null or { _Version: 0, Timestamp: null, Epoch: 0, Round: 0 };
+    }
+
+    private async Task<LedgerStateReport> GetTopOfLedgerStateReport()
+    {
+        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetTopLedgerTransaction());
+
+        if (ledgerState == null)
+        {
+            throw new InvalidStateException("There are no transactions in the database");
+        }
+
+        return ledgerState;
+    }
+
+    private async Task<LedgerStateReport> GetLedgerStateBeforeStateVersion(long stateVersion)
     {
         var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionBeforeStateVersion(stateVersion));
 
@@ -191,7 +270,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
         return ledgerState;
     }
 
-    private async Task<LedgerState> GetLedgerStateBeforeTimestamp(string timestamp)
+    private async Task<LedgerStateReport> GetLedgerStateBeforeTimestamp(string timestamp)
     {
         var validatedTimestamp = _validations.ExtractValidTimestamp("The ledger state timestamp", timestamp);
 
@@ -210,27 +289,38 @@ public class LedgerStateQuerier : ILedgerStateQuerier
         return ledgerState;
     }
 
-    private async Task<LedgerState> GetLedgerStateAtEpochAndRound(long epoch, long round)
+    private async Task<LedgerStateReport> GetLedgerStateAtEpochAndRound(long epoch, long round)
     {
         var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionAtEpochRound(epoch, round));
 
         if (ledgerState == null)
         {
-            throw InvalidRequestException.FromOtherError($"Epoch {epoch} is beyond the end of the ledger");
+            throw InvalidRequestException.FromOtherError($"Epoch {epoch} is beyond the end of the known ledger");
         }
 
         return ledgerState;
     }
 
-    private async Task<LedgerState?> GetLedgerStateFromQuery(IQueryable<LedgerTransaction> query)
+    private async Task<LedgerStateReport?> GetLedgerStateFromQuery(IQueryable<LedgerTransaction> query)
     {
-        return await query
-            .Select(lt => new LedgerState(
+        var lt = await query
+            .Select(lt => new
+            {
+                lt.ResultantStateVersion,
+                lt.RoundTimestamp,
+                lt.Epoch,
+                lt.RoundInEpoch,
+            })
+            .SingleOrDefaultAsync();
+
+        return lt == null ? null : new LedgerStateReport(
+            new LedgerState(
                 lt.ResultantStateVersion,
                 lt.RoundTimestamp.AsUtcIsoDateWithMillisString(),
                 lt.Epoch,
                 lt.RoundInEpoch
-            ))
-            .SingleOrDefaultAsync();
+            ),
+            lt.RoundTimestamp
+        );
     }
 }

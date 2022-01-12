@@ -79,7 +79,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Common.Database;
 
 /// <summary>
-/// Common DB Context for the radixdlt-network-gateway database.
+/// Common DB Context for the Network Gateway database.
 /// </summary>
 public class CommonDbContext : DbContext
 {

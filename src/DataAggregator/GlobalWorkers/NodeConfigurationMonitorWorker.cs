@@ -72,7 +72,7 @@ namespace DataAggregator.GlobalWorkers;
 /// <summary>
 /// Responsible for reading the config, and ensuring workers are running for each node.
 /// </summary>
-public class NodeConfigurationMonitorWorker : LoopedWorkerBase
+public class NodeConfigurationMonitorWorker : GlobalWorker
 {
     private readonly ILogger<NodeConfigurationMonitorWorker> _logger;
     private readonly INodeWorkersRunnerRegistry _nodeWorkersRunnerRegistry;
@@ -90,16 +90,20 @@ public class NodeConfigurationMonitorWorker : LoopedWorkerBase
         _nodeWorkersRunnerRegistry = nodeWorkersRunnerRegistry;
     }
 
-    protected override async Task DoWork(CancellationToken stoppingToken)
+    protected override async Task DoWork(CancellationToken cancellationToken)
     {
-        await HandleNodeConfiguration(stoppingToken);
+        await HandleNodeConfiguration(cancellationToken);
     }
 
-    protected override async Task OnStop(CancellationToken stoppingToken)
+    protected override async Task OnStoppedSuccessfully()
     {
         _logger.LogInformation("Received cancellation at: {Time} - instructing all node workers to stop", SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
-        await _nodeWorkersRunnerRegistry.StopAllWorkers(stoppingToken);
-        _logger.LogInformation("Instructed all workers to stop");
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(1000));
+        await _nodeWorkersRunnerRegistry.StopAllWorkers(cancellationTokenSource.Token);
+
+        _logger.LogInformation("All node workers have been stopped");
     }
 
     private async Task HandleNodeConfiguration(CancellationToken stoppingToken)
@@ -110,15 +114,6 @@ public class NodeConfigurationMonitorWorker : LoopedWorkerBase
             .Where(n => n.Enabled)
             .ToList();
 
-        await Task.WhenAll(
-            UpdateNodeConfigurationInDatabaseIfNeeded(),
-            _nodeWorkersRunnerRegistry.EnsureCorrectNodeServicesRunning(enabledNodes, stoppingToken)
-        );
-    }
-
-    private Task UpdateNodeConfigurationInDatabaseIfNeeded()
-    {
-        // TODO:NG-12 - Ensure we write this if it's needed, or we get rid of this if it's not
-        return Task.CompletedTask;
+        await _nodeWorkersRunnerRegistry.EnsureCorrectNodeServicesRunning(enabledNodes, stoppingToken);
     }
 }

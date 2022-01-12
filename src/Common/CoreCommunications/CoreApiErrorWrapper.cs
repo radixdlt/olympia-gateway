@@ -102,11 +102,11 @@ public static class CoreApiErrorWrapper
         return coreError.Details switch
         {
             AboveMaximumValidatorFeeIncreaseError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
-            BelowMinimumStakeError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }), // Should have already detected this, but rethrow anyway
+            BelowMinimumStakeError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
             DataObjectNotSupportedByEntityError error => WrappedCoreApiException.Of(apiException, error),
             FeeConstructionError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { Transience = Transience.MaybeTransient }),
             InternalServerError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { Transience = Transience.MaybeTransient }),
-            InvalidAddressError error => WrappedCoreApiException.Of(apiException, error), // Not specific enough - rely on Gateway handling
+            InvalidAddressError error => WrappedCoreApiException.Of(apiException, error),
             InvalidDataObjectError error => WrappedCoreApiException.Of(apiException, error),
             InvalidFeePayerEntityError error => WrappedCoreApiException.Of(apiException, error),
             InvalidHexError error => WrappedCoreApiException.Of(apiException, error),
@@ -120,7 +120,7 @@ public static class CoreApiErrorWrapper
             MessageTooLongError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
             MempoolFullError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { Transience = Transience.Transient }),
             NetworkNotSupportedError error => WrappedCoreApiException.Of(apiException, error),
-            NotEnoughNativeTokensForFeesError error => WrappedCoreApiException.Of(apiException, error, new CoreApiErrorProperties { MarksInvalidTransaction = true }),
+            NotEnoughNativeTokensForFeesError error => WrappedCoreApiException.Of(apiException, error),
             NotEnoughResourcesError error => WrappedCoreApiException.Of(apiException, error),
             NotValidatorOwnerError error => WrappedCoreApiException.Of(apiException, error),
             PublicKeyNotSupportedError error => WrappedCoreApiException.Of(apiException, error),

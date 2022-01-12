@@ -97,7 +97,7 @@ public class ValidatorController : ControllerBase
     public async Task<ValidatorResponse> GetValidatorInfo(ValidatorRequest request)
     {
         var validatorAddress = _validations.ExtractValidValidatorAddress(request.ValidatorIdentifier);
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
         return new ValidatorResponse(
             ledgerState,
             await _validatorQuerier.GetValidatorAtState(validatorAddress, ledgerState)
@@ -107,7 +107,7 @@ public class ValidatorController : ControllerBase
     [HttpPost("validators")]
     public async Task<ValidatorsResponse> GetValidators(ValidatorsRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
         return new ValidatorsResponse(
             ledgerState,
             await _validatorQuerier.GetValidatorsAtState(ledgerState)

@@ -75,14 +75,15 @@ namespace Common.Database.Models.Mempool;
 
 public enum MempoolTransactionStatus
 {
-    InNodeMempool, // A transaction which appears in at least one mempool at the last update
-    Missing,       // A transaction which is no longer in any mempool
-    ResolvedButUnknownTillSyncedUp, // A transaction has been marked as a double-spend by a node, but we've yet to see it on ledger
-                                    // because the aggregator service is not synced up - so we don't know if it's been committed
-                                    // and detected itself, or clashed with another transaction. This shouldn't happen in production.
+    InNodeMempool, // We believe the transaction is in at least one node mempool, or has possibly (just) entered one
+    Missing,       // A transaction which was previously InNodeMempool, but at last check, was no longer seen in any mempool
+                   // after transitioning to Missing, we wait for a further delay before attempting resubmission, to allow the
+                   // Gateway DB time to sync and mark it committed
+    ResolvedButUnknownTillSyncedUp, // A transaction has been marked as substate not found by a node at resubmission, but we've yet to see it on ledger
+                                    // because the aggregator service is not sufficiently synced up - so we don't know if it's been committed
+                                    // and detected itself, or clashed with another transaction.
     Failed,        // A transaction which we have tried to (re)submit, but it returns a permanent error from the node (eg substate clash)
     Committed,     // A transaction which we know got committed to the ledger
-                   // NOTE due to race conditions, it might be possible for a transaction to end up Pending/Missing even it's committed
 }
 
 public class MempoolTransactionStatusValueConverter : EnumTypeValueConverterBase<MempoolTransactionStatus>
@@ -191,6 +192,7 @@ public class MempoolTransaction
     public string TransactionContents { get; private set; }
 
     [Column("status")]
+    [ConcurrencyCheck]
     public MempoolTransactionStatus Status { get; private set; }
 
     /// <summary>

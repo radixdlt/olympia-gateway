@@ -165,7 +165,7 @@ public class LedgerConfirmationService : ILedgerConfirmationService
     private static readonly Gauge _ledgerLastCommitTimestamp = Metrics
         .CreateGauge(
             "ng_ledger_commit_last_commit_timestamp_seconds",
-            "Unix timestamp of the last DB ledger commit."
+            "Unix timestamp of the last DB ledger commit (in seconds, to millisecond precision)."
         );
 
     private static readonly Gauge _ledgerStateVersion = Metrics
@@ -177,7 +177,7 @@ public class LedgerConfirmationService : ILedgerConfirmationService
     private static readonly Gauge _ledgerUnixRoundTimestamp = Metrics
         .CreateGauge(
             "ng_ledger_commit_tip_round_unix_timestamp_seconds",
-            "Unix timestamp of the round at the top of the DB ledger."
+            "Unix timestamp of the round at the top of the DB ledger (in seconds, to millisecond precision)."
         );
 
     /* Per-Node Metrics */
@@ -214,10 +214,9 @@ public class LedgerConfirmationService : ILedgerConfirmationService
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<long, CommittedTransaction>> _transactionsByNode = new();
     private TransactionSummary? _knownTopOfCommittedLedger;
 
-    /* Properties */
-    private LedgerConfirmationConfiguration Config => _aggregatorConfiguration.GetLedgerConfirmationConfiguration();
-
     private IList<NodeAppSettings> TransactionNodes { get; set; } = new List<NodeAppSettings>();
+
+    private LedgerConfirmationConfiguration Config { get; set; }
 
     public LedgerConfirmationService(
         ILogger<LedgerConfirmationService> logger,
@@ -233,6 +232,8 @@ public class LedgerConfirmationService : ILedgerConfirmationService
 
         _quorumExistsStatus.SetStatus(MetricStatus.Unknown);
         _quorumExtensionConsistentStatus.SetStatus(MetricStatus.Unknown);
+
+        Config = _aggregatorConfiguration.GetLedgerConfirmationConfiguration();
     }
 
     /// <summary>
@@ -341,10 +342,13 @@ public class LedgerConfirmationService : ILedgerConfirmationService
 
     private void PrepareForLedgerExtensionCheck()
     {
-        // We persist this to avoid excessive allocations; but update it at the start of each loop in case the config has changed
+        // We persist these to avoid excessive config load allocations;
+        // but update them at the start of each loop in case the config has changed
         TransactionNodes = _aggregatorConfiguration.GetNodes()
             .Where(n => n.Enabled && !n.DisabledForTransactionIndexing)
             .ToList();
+
+        Config = _aggregatorConfiguration.GetLedgerConfirmationConfiguration();
     }
 
     private List<CommittedTransaction> ConstructQuorumLedgerExtension()
@@ -362,7 +366,8 @@ public class LedgerConfirmationService : ILedgerConfirmationService
 
         if (trustRequirements.TrustWeightingRequiredForQuorumAtPresentTime == 0)
         {
-            _logger.LogWarning("Total trust weighting required for extension is zero - likely the system is either yet to read from nodes, or none of the nodes are close enough to synced up");
+            var logLevel = _systemStatusService.IsInStartupGracePeriod() ? LogLevel.Debug : LogLevel.Warning;
+            _logger.Log(logLevel, "Total trust weighting required for extension is zero - likely the system is either yet to read from nodes, or none of the nodes are close enough to synced up");
             return extension;
         }
 
@@ -462,7 +467,7 @@ public class LedgerConfirmationService : ILedgerConfirmationService
 
         _batchCommitTimeSeconds.Observe(totalCommitMs / 1000D);
         _ledgerCommittedTransactionsCount.Inc(commitReport.TransactionsCommittedCount);
-        _ledgerLastCommitTimestamp.Set(SystemClock.Instance.GetCurrentInstant().ToUnixTimeSeconds());
+        _ledgerLastCommitTimestamp.Set(SystemClock.Instance.GetCurrentInstant().ToUnixTimeSecondsWithMilliPrecision());
 
         _logger.LogInformation(
             "Committed {TransactionCount} transactions to the DB in {TotalCommitTransactionsMs}ms [EntitiesTouched={DbEntriesWritten},TxnContentDbActions={TransactionContentDbActionsCount}]",
@@ -513,7 +518,7 @@ public class LedgerConfirmationService : ILedgerConfirmationService
     private void RecordTopOfDbLedgerMetrics(TransactionSummary topOfLedger)
     {
         _ledgerStateVersion.Set(topOfLedger.StateVersion);
-        _ledgerUnixRoundTimestamp.Set(topOfLedger.RoundTimestamp.ToUnixTimeSeconds());
+        _ledgerUnixRoundTimestamp.Set(topOfLedger.RoundTimestamp.ToUnixTimeSecondsWithMilliPrecision());
     }
 
     private void StopTrackingTransactionsUpToStateVersion(long committedStateVersion)

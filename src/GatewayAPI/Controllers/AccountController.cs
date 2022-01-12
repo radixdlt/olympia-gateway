@@ -100,7 +100,7 @@ public class AccountController : ControllerBase
     public async Task<AccountBalancesResponse> GetBalances(AccountBalancesRequest request)
     {
         var accountAddress = _validations.ExtractValidAccountAddress(request.AccountIdentifier);
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
 
         var accountBalances = await _accountQuerier.GetAccountBalancesAtState(
             accountAddress.Address,
@@ -114,7 +114,7 @@ public class AccountController : ControllerBase
     public async Task<AccountStakesResponse> GetStakePositions(AccountStakesRequest request)
     {
         var accountAddress = _validations.ExtractValidAccountAddress(request.AccountIdentifier);
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
 
         return await _accountQuerier.GetStakePositionsAtState(
             accountAddress.Address,
@@ -126,7 +126,7 @@ public class AccountController : ControllerBase
     public async Task<AccountUnstakesResponse> GetUnstakePositions(AccountUnstakesRequest request)
     {
         var accountAddress = _validations.ExtractValidAccountAddress(request.AccountIdentifier);
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
 
         return await _accountQuerier.GetUnstakePositionsAtState(
             accountAddress.Address,
@@ -138,7 +138,7 @@ public class AccountController : ControllerBase
     public async Task<AccountTransactionsResponse> GetAccountTransactions(AccountTransactionsRequest request)
     {
         var accountAddress = _validations.ExtractValidAccountAddress(request.AccountIdentifier);
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
 
         var unvalidatedLimit = request.Limit is default(int) ? 10 : request.Limit;
 

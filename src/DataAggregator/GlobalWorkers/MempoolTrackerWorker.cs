@@ -69,7 +69,7 @@ namespace DataAggregator.GlobalWorkers;
 /// <summary>
 /// Responsible for keeping the db mempool in sync with the node mempools that have been submitted by the NodeMempoolTracker.
 /// </summary>
-public class MempoolTrackerWorker : LoopedWorkerBase
+public class MempoolTrackerWorker : GlobalWorker
 {
     private readonly IMempoolTrackerService _mempoolTrackerService;
 
@@ -82,15 +82,15 @@ public class MempoolTrackerWorker : LoopedWorkerBase
         _mempoolTrackerService = mempoolTrackerService;
     }
 
-    protected override async Task OnStart(CancellationToken stoppingToken)
+    protected override async Task OnStart(CancellationToken cancellationToken, bool isCurrentlyEnabled)
     {
         // Wait on start-up for nodes to load to allow some time for the nodes to populate their mempools
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
-        await base.OnStart(stoppingToken);
+        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+        await base.OnStart(cancellationToken, isCurrentlyEnabled);
     }
 
-    protected override async Task DoWork(CancellationToken stoppingToken)
+    protected override async Task DoWork(CancellationToken cancellationToken)
     {
-        await _mempoolTrackerService.HandleMempoolChanges(stoppingToken);
+        await _mempoolTrackerService.HandleMempoolChanges(cancellationToken);
     }
 }

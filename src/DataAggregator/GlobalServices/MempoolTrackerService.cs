@@ -216,7 +216,7 @@ public class MempoolTrackerService : IMempoolTrackerService
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(token);
 
-        var parsedTransactionMapper = new ParsedTransactionMapper<AggregatorDbContext>(dbContext, _actionInferrer);
+        IParsedTransactionMapper parsedTransactionMapper = new ParsedTransactionMapper<AggregatorDbContext>(dbContext, _actionInferrer);
 
         var mempoolTransactionIds = combinedMempool.Keys.ToList(); // Npgsql optimizes List<> Contains
 
@@ -300,7 +300,7 @@ public class MempoolTrackerService : IMempoolTrackerService
                 continue;
             }
 
-            var resubmissionTime = mempoolItem.LastSubmittedToNodeTimestamp == null
+            var nextResubmissionTime = mempoolItem.LastSubmittedToNodeTimestamp == null
                 ? currentTimestamp
                 : DateTimeExtensions.LatestOf(
                     mempoolItem.LastSubmittedToNodeTimestamp.Value + timeouts.MinDelayBetweenResubmissions,
@@ -309,7 +309,7 @@ public class MempoolTrackerService : IMempoolTrackerService
 
             var resubmissionLimit = mempoolItem.LastSubmittedToGatewayTimestamp!.Value + timeouts.StopResubmittingAfter;
 
-            var canResubmit = resubmissionTime <= resubmissionLimit;
+            var canResubmit = nextResubmissionTime <= resubmissionLimit;
 
             if (canResubmit)
             {

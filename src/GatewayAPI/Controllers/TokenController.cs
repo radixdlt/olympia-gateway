@@ -100,7 +100,7 @@ public class TokenController : ControllerBase
     [HttpPost("")]
     public async Task<TokenResponse> GetTokenInfo(TokenRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
         return new TokenResponse(
             ledgerState,
             await _tokenQuerier.GetTokenInfoAtState(request.TokenIdentifier.Rri, ledgerState)
@@ -110,7 +110,7 @@ public class TokenController : ControllerBase
     [HttpPost("native")]
     public async Task<TokenNativeResponse> GetNativeTokenInfo(TokenNativeRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
         return new TokenNativeResponse(
             ledgerState,
             await _tokenQuerier.GetTokenInfoAtState(_networkConfigurationProvider.GetXrdAddress(), ledgerState)

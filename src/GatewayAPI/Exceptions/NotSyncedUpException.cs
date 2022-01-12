@@ -62,28 +62,44 @@
  * permissions under this License.
  */
 
-using DataAggregator.GlobalServices;
+using Common.Extensions;
+using NodaTime;
+using RadixGatewayApi.Generated.Model;
 
-namespace DataAggregator.GlobalWorkers;
+namespace GatewayAPI.Exceptions;
 
-/// <summary>
-/// Responsible for keeping the db mempool pruned.
-/// </summary>
-public class MempoolPrunerWorker : GlobalWorker
+public enum NotSyncedUpRequestType
 {
-    private readonly IMempoolPrunerService _mempoolPrunerService;
+    Read,
+    Construction,
+}
 
-    public MempoolPrunerWorker(
-        ILogger<MempoolPrunerWorker> logger,
-        IMempoolPrunerService mempoolPrunerService
-    )
-        : base(logger, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60))
+public class NotSyncedUpException : KnownGatewayErrorException
+{
+    private NotSyncedUpException(NotSyncedUpError gatewayError, string userFacingMessage)
+        : base(500, gatewayError, userFacingMessage)
     {
-        _mempoolPrunerService = mempoolPrunerService;
     }
 
-    protected override async Task DoWork(CancellationToken cancellationToken)
+    public static NotSyncedUpException FromRequest(NotSyncedUpRequestType requestType, Duration currentSyncDelay, long maxAllowedSyncDelaySeconds)
     {
-        await _mempoolPrunerService.PruneMempool(cancellationToken);
+        return new NotSyncedUpException(
+            new NotSyncedUpError(
+                RequestTypeAsString(requestType),
+                currentSyncDelaySeconds: (long)Math.Floor(currentSyncDelay.TotalSeconds),
+                maxAllowedSyncDelaySeconds: maxAllowedSyncDelaySeconds
+            ),
+            $"The Gateway API cannot return current results as its database is not sufficiently up to date with the Network's Ledger (it is currently {currentSyncDelay.FormatPositiveDurationHumanReadable()} behind)"
+        );
+    }
+
+    private static string RequestTypeAsString(NotSyncedUpRequestType requestType)
+    {
+        return requestType switch
+        {
+            NotSyncedUpRequestType.Read => "Read",
+            NotSyncedUpRequestType.Construction => "Construction",
+            _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null),
+        };
     }
 }

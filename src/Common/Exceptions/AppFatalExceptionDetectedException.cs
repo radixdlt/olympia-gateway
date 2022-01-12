@@ -62,28 +62,12 @@
  * permissions under this License.
  */
 
-using DataAggregator.GlobalServices;
+namespace Common.Exceptions;
 
-namespace DataAggregator.GlobalWorkers;
-
-/// <summary>
-/// Responsible for keeping the db mempool pruned.
-/// </summary>
-public class MempoolPrunerWorker : GlobalWorker
+public class AppFatalExceptionDetectedException : Exception
 {
-    private readonly IMempoolPrunerService _mempoolPrunerService;
-
-    public MempoolPrunerWorker(
-        ILogger<MempoolPrunerWorker> logger,
-        IMempoolPrunerService mempoolPrunerService
-    )
-        : base(logger, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60))
+    public AppFatalExceptionDetectedException(Exception innerException)
+        : base("An app fatal exception has been detected", innerException)
     {
-        _mempoolPrunerService = mempoolPrunerService;
-    }
-
-    protected override async Task DoWork(CancellationToken cancellationToken)
-    {
-        await _mempoolPrunerService.PruneMempool(cancellationToken);
     }
 }

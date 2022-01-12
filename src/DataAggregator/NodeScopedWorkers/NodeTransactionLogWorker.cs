@@ -76,7 +76,7 @@ namespace DataAggregator.NodeScopedWorkers;
 /// <summary>
 /// Responsible for syncing the transaction stream from a node.
 /// </summary>
-public class NodeTransactionLogWorker : LoopedWorkerBase, INodeWorker
+public class NodeTransactionLogWorker : NodeWorker
 {
     private static readonly Counter _failedFetchLoopsUnlabeled = Metrics
         .CreateCounter(
@@ -125,14 +125,14 @@ public class NodeTransactionLogWorker : LoopedWorkerBase, INodeWorker
         _totalFetchTimeSeconds = _totalFetchTimeSecondsUnlabeled.WithLabels(NodeName);
     }
 
-    public bool IsEnabled()
+    public override bool IsEnabledByNodeConfiguration()
     {
         return _nodeConfigProvider.NodeAppSettings.Enabled && !_nodeConfigProvider.NodeAppSettings.DisabledForTransactionIndexing;
     }
 
-    protected override async Task DoWork(CancellationToken stoppingToken)
+    protected override async Task DoWork(CancellationToken cancellationToken)
     {
-        await _failedFetchLoops.CountExceptionsAsync(() => FetchAndSubmitTransactions(stoppingToken));
+        await _failedFetchLoops.CountExceptionsAsync(() => FetchAndSubmitTransactions(cancellationToken));
     }
 
     private async Task FetchAndSubmitTransactions(CancellationToken stoppingToken)

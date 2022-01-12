@@ -478,11 +478,11 @@ public class ConstructionAndSubmissionService : IConstructionAndSubmissionServic
         }
         catch (WrappedCoreApiException<Core.SubstateDependencyNotFoundError> ex)
         {
-            _transactionSubmitResolutionByResultCount.WithLabels("double_spend").Inc();
+            _transactionSubmitResolutionByResultCount.WithLabels("substate_missing_or_already_used").Inc();
             await _submissionTrackingService.MarkAsFailed(
                 transactionIdentifierHash,
                 MempoolTransactionFailureReason.DoubleSpend,
-                "Double spend on initial submission"
+                "A substate identifier the transaction uses is missing or already downed"
             );
             throw InvalidTransactionException.FromSubstateDependencyNotFoundError(signedTransaction.AsString, ex.Error);
         }

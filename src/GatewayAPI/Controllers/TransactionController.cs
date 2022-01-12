@@ -99,7 +99,7 @@ public class TransactionController : ControllerBase
     [HttpPost("rules")]
     public async Task<TransactionRulesResponse> GetTransactionRules(TransactionRulesRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
         return new TransactionRulesResponse(
             ledgerState,
             /* TODO:NG-57 - Output from Engine Configuration Fork at given state version */
@@ -115,7 +115,7 @@ public class TransactionController : ControllerBase
     public async Task<TransactionStatusResponse> GetTransactionStatus(TransactionStatusRequest request)
     {
         var transactionIdentifier = _validations.ExtractValidTransactionIdentifier(request.TransactionIdentifier);
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
 
         var committedTransaction = await _transactionQuerier.LookupCommittedTransaction(transactionIdentifier, ledgerState);
 
@@ -137,7 +137,7 @@ public class TransactionController : ControllerBase
     [HttpPost("build")]
     public async Task<TransactionBuildResponse> BuildTransaction(TransactionBuildRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetLedgerState(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForConstructionRequest(request.NetworkIdentifier, request.AtStateIdentifier);
         return new TransactionBuildResponse(
             await _constructionAndSubmissionService.HandleBuildRequest(request, ledgerState)
         );

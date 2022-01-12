@@ -5,8 +5,8 @@
 This system is designed to be the Radix-run publicly exposed gateway into the Olympia Radix network, and replaces the archive module which previously ran on-node.
 
 The system is in two main parts:
-* **Data Aggregator** - Reads from the Core API of one or more full nodes, ingesting from their Transaction API and Mempool Contents API, and committing transactions to a PostGres database. This project has ownership of the schema migrations.
-* **Gateway API** - Provides the public API for Wallets and Explorers.
+* **Data Aggregator** - Reads from the Core API of one or more full nodes, ingesting from their Transaction API and Mempool Contents API, and committing transactions to a PostgreSQL database. It also handles the pruning (and resubmission where relevant) of submitted transactions. This project has ownership of the schema migrations.
+* **Gateway API** - Provides the public API for Wallets and Explorers, and maps construction and submission requests to the Core API of one or more full nodes.
 
 ## Using the Gateway API
 

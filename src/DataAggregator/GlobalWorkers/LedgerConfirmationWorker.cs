@@ -69,7 +69,7 @@ namespace DataAggregator.GlobalWorkers;
 /// <summary>
 /// Responsible for keeping the db mempool in sync with the node mempools that have been submitted by the NodeMempoolTracker.
 /// </summary>
-public class LedgerConfirmationWorker : LoopedWorkerBase
+public class LedgerConfirmationWorker : GlobalWorker
 {
     private readonly ILedgerConfirmationService _ledgerConfirmationService;
 
@@ -82,8 +82,8 @@ public class LedgerConfirmationWorker : LoopedWorkerBase
         _ledgerConfirmationService = ledgerConfirmationService;
     }
 
-    protected override async Task DoWork(CancellationToken stoppingToken)
+    protected override async Task DoWork(CancellationToken cancellationToken)
     {
-        await _ledgerConfirmationService.HandleLedgerExtensionIfQuorum(stoppingToken);
+        await _ledgerConfirmationService.HandleLedgerExtensionIfQuorum(cancellationToken);
     }
 }

@@ -77,6 +77,8 @@ public interface ISystemStatusService
 
     bool IsPrimary();
 
+    bool IsInStartupGracePeriod();
+
     HealthReport GenerateTransactionCommitmentHealthReport();
 
     bool IsTopOfDbLedgerValidatorCommitTimestampCloseToPresent(Duration duration);
@@ -146,9 +148,14 @@ public class SystemStatusService : ISystemStatusService
         return _isPrimary;
     }
 
+    public bool IsInStartupGracePeriod()
+    {
+        return _startupTime.WithinPeriodOfNow(StartupGracePeriod);
+    }
+
     public HealthReport GenerateTransactionCommitmentHealthReport()
     {
-        if (InStartupGracePeriod())
+        if (IsInStartupGracePeriod())
         {
             return new HealthReport(
                 true,
@@ -185,10 +192,5 @@ public class SystemStatusService : ISystemStatusService
     private bool CommittedRecently()
     {
         return _lastTransactionCommitment != null && _lastTransactionCommitment.Value.WithinPeriodOfNow(UnhealthyCommitmentGapSeconds);
-    }
-
-    private bool InStartupGracePeriod()
-    {
-        return _startupTime.WithinPeriodOfNow(StartupGracePeriod);
     }
 }

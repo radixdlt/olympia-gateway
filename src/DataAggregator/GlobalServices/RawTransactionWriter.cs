@@ -64,6 +64,7 @@
 
 using Common.Database.Models.Ledger;
 using Common.Database.Models.Mempool;
+using Common.Extensions;
 using Common.Utilities;
 using DataAggregator.DependencyInjection;
 using DataAggregator.LedgerExtension;
@@ -86,6 +87,19 @@ public class RawTransactionWriter : IRawTransactionWriter
             "ng_db_mempool_transactions_marked_committed_count",
             "Number of mempool transactions which are marked committed"
         );
+
+    private static readonly Counter _transactionsMarkedCommittedWhichWereFailedCount = Metrics
+        .CreateCounter(
+            "ng_db_mempool_transactions_marked_committed_which_were_failed_count",
+            "Number of mempool transactions which are marked committed which were previously marked as failed"
+        );
+
+    private readonly ILogger<RawTransactionWriter> _logger;
+
+    public RawTransactionWriter(ILogger<RawTransactionWriter> logger)
+    {
+        _logger = logger;
+    }
 
     public async Task<int> EnsureRawTransactionsCreatedOrUpdated(AggregatorDbContext context, List<RawTransaction> rawTransactions, CancellationToken token)
     {
@@ -117,6 +131,21 @@ public class RawTransactionWriter : IRawTransactionWriter
 
         foreach (var mempoolTransaction in toUpdate)
         {
+            if (mempoolTransaction.Status == MempoolTransactionStatus.Failed)
+            {
+                _transactionsMarkedCommittedWhichWereFailedCount.Inc();
+                _logger.LogError(
+                    "Transaction with id {TransactionId} which was first/last submitted to Gateway at {FirstGatewaySubmissionTime}/{LastGatewaySubmissionTime} and last marked missing from mempool at {LastMissingFromMempoolTimestamp} was mark failed at {FailureTime} due to {FailureReason} ({FailureExplanation}) but has now been marked committed",
+                    mempoolTransaction.TransactionIdentifierHash.ToHex(),
+                    mempoolTransaction.FirstSubmittedToGatewayTimestamp?.AsUtcIsoDateToSecondsForLogs(),
+                    mempoolTransaction.LastSubmittedToGatewayTimestamp?.AsUtcIsoDateToSecondsForLogs(),
+                    mempoolTransaction.LastDroppedOutOfMempoolTimestamp?.AsUtcIsoDateToSecondsForLogs(),
+                    mempoolTransaction.FailureTimestamp?.AsUtcIsoDateToSecondsForLogs(),
+                    mempoolTransaction.FailureReason?.ToString(),
+                    mempoolTransaction.FailureExplanation
+                );
+            }
+
             var transactionSummary = transactionsById[mempoolTransaction.TransactionIdentifierHash].TransactionSummary;
             mempoolTransaction.MarkAsCommitted(
                 transactionSummary.StateVersion,
@@ -124,6 +153,8 @@ public class RawTransactionWriter : IRawTransactionWriter
             );
         }
 
+        // If this errors (due to changes to the MempoolTransaction.Status ConcurrencyToken), we may have to consider
+        // something like: https://docs.microsoft.com/en-us/ef/core/saving/concurrency
         var result = await context.SaveChangesAsync(token);
 
         _transactionsMarkedCommittedCount.Inc(toUpdate.Count);

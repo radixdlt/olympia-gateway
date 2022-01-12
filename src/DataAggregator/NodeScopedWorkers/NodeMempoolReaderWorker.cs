@@ -65,7 +65,6 @@
 using Common.Extensions;
 using Common.Utilities;
 using DataAggregator.GlobalServices;
-using DataAggregator.GlobalWorkers;
 using DataAggregator.NodeScopedServices;
 using DataAggregator.NodeScopedServices.ApiReaders;
 using NodaTime;
@@ -78,7 +77,7 @@ namespace DataAggregator.NodeScopedWorkers;
 /// <summary>
 /// Responsible for syncing the mempool from a node.
 /// </summary>
-public class NodeMempoolReaderWorker : LoopedWorkerBase, INodeWorker
+public class NodeMempoolReaderWorker : NodeWorker
 {
     private static readonly Gauge _mempoolSizeUnScoped = Metrics
         .CreateGauge(
@@ -133,15 +132,15 @@ public class NodeMempoolReaderWorker : LoopedWorkerBase, INodeWorker
         _mempoolItemsRemoved = _mempoolItemsRemovedUnScoped.WithLabels(nodeConfig.NodeAppSettings.Name);
     }
 
-    public bool IsEnabled()
+    public override bool IsEnabledByNodeConfiguration()
     {
         var nodeConfig = _services.GetRequiredService<INodeConfigProvider>();
         return nodeConfig.NodeAppSettings.Enabled && !nodeConfig.NodeAppSettings.DisabledForMempool;
     }
 
-    protected override async Task DoWork(CancellationToken stoppingToken)
+    protected override async Task DoWork(CancellationToken cancellationToken)
     {
-        await FetchAndShareMempoolTransactions(stoppingToken);
+        await FetchAndShareMempoolTransactions(cancellationToken);
     }
 
     private async Task FetchAndShareMempoolTransactions(CancellationToken stoppingToken)

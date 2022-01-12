@@ -69,90 +69,297 @@ using System.Diagnostics;
 
 namespace DataAggregator.GlobalWorkers;
 
-/// <summary>
-/// Responsible for syncing the transaction stream from a node.
-/// </summary>
-public abstract class LoopedWorkerBase : BackgroundService
+public enum BehaviourOnFault
 {
+    Nothing,
+    ApplicationExit,
+}
+
+public interface ILoopedWorkerBase : IHostedService, IDisposable
+{
+    bool IsFaulted { get; }
+
+    public Exception? FaultedException { get; }
+
+    bool IsStoppedSuccessfully { get; }
+
+    bool IsCurrentlyEnabled();
+}
+
+public abstract class LoopedWorkerBase : BackgroundService, ILoopedWorkerBase
+{
+    public bool IsFaulted { get; private set; }
+
+
+    public Exception? FaultedException { get; private set; }
+
+    public bool IsStoppedSuccessfully { get; private set; }
+
     private readonly ILogger _logger;
+    private readonly BehaviourOnFault _behaviourOnFault;
     private readonly LogLimiter _stillRunningLogLimiter;
     private readonly TimeSpan _minDelayBetweenLoops;
     private readonly TimeSpan _minDelayAfterErrorLoop;
     private Stopwatch? _loopIterationStopwatch;
+    private bool? _wasEnabledAtLastLoopIteration;
 
     // ReSharper disable once ContextualLoggerProblem
-    public LoopedWorkerBase(ILogger logger, TimeSpan minDelayBetweenLoops, TimeSpan minDelayAfterErrorLoop, TimeSpan minDelayBetweenInfoLogs)
+    protected LoopedWorkerBase(
+        ILogger logger,
+        BehaviourOnFault behaviourOnFault,
+        TimeSpan minDelayBetweenLoops,
+        TimeSpan minDelayAfterErrorLoop,
+        TimeSpan minDelayBetweenInfoLogs
+    )
     {
         _logger = logger;
+        _behaviourOnFault = behaviourOnFault;
         _minDelayBetweenLoops = minDelayBetweenLoops;
         _minDelayAfterErrorLoop = minDelayAfterErrorLoop;
         _stillRunningLogLimiter = new LogLimiter(minDelayBetweenInfoLogs, LogLevel.Information, LogLevel.Debug);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        await OnStart(stoppingToken);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            _loopIterationStopwatch = Stopwatch.StartNew();
-            try
-            {
-                await ExecuteLoopIteration(stoppingToken);
-                var remainingTime = GetRemainingRestartDelay();
-                if (remainingTime > TimeSpan.Zero)
-                {
-                    await Task.Delay(remainingTime, stoppingToken);
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                // We catch the TaskCancelledException so we get the Stopping message :)
-                break;
-            }
-            catch (Exception ex)
-            {
-                var remainingTime = GetRemainingRestartAfterErrorDelay();
-                _logger.LogError(ex, "An error occurred. Will restart work in {Delay}ms", remainingTime.Milliseconds);
-                if (remainingTime > TimeSpan.Zero)
-                {
-                    await Task.Delay(remainingTime, stoppingToken);
-                }
-            }
+            var isCurrentlyEnabled = IsCurrentlyEnabled();
+            _wasEnabledAtLastLoopIteration = isCurrentlyEnabled;
+            await OnStartRequested(cancellationToken, isCurrentlyEnabled);
+            await base.StartAsync(cancellationToken);
         }
-
-        await OnStop(stoppingToken);
+        catch (Exception ex)
+        {
+            TrackFatalWorkerException(false, ex, "startup");
+            throw;
+        }
     }
 
-    protected TimeSpan GetRemainingRestartDelay()
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await OnStopRequested(cancellationToken);
+            await base.StopAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            TrackFatalWorkerException(true, ex, "requested shutdown");
+            throw;
+        }
+    }
+
+    public virtual bool IsCurrentlyEnabled()
+    {
+        return true;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await OnStart(cancellationToken, IsCurrentlyEnabled());
+        }
+        catch (Exception ex)
+        {
+            TrackFatalWorkerException(false, ex, "the on start callback");
+            throw;
+        }
+
+        try
+        {
+            await RunLoopWhilstNotCancelled(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            TrackFatalWorkerException(false, ex, "the main execution loop");
+            throw;
+        }
+
+        try
+        {
+            await OnStoppedSuccessfully(); // Don't pass the cancellation token because it's already cancelled!
+            IsStoppedSuccessfully = true;
+        }
+        catch (Exception ex)
+        {
+            TrackFatalWorkerException(true, ex, "the on stopped successfully callback");
+            throw;
+        }
+    }
+
+    protected virtual TimeSpan GetRemainingRestartDelay()
     {
         var timespan = _minDelayBetweenLoops - _loopIterationStopwatch!.Elapsed;
         return timespan < TimeSpan.Zero ? TimeSpan.Zero : timespan;
     }
 
-    protected TimeSpan GetRemainingRestartAfterErrorDelay()
+    protected virtual TimeSpan GetRemainingRestartAfterErrorDelay()
     {
         var timespan = _minDelayAfterErrorLoop - _loopIterationStopwatch!.Elapsed;
         return timespan < TimeSpan.Zero ? TimeSpan.Zero : timespan;
     }
 
-    protected virtual Task OnStart(CancellationToken stoppingToken)
+    protected abstract Task DoWork(CancellationToken cancellationToken);
+
+    /// <summary>
+    ///  If this errors, the Worker is faulted.
+    /// </summary>
+    protected virtual Task OnStart(CancellationToken cancellationToken, bool isCurrentlyEnabled)
     {
-        _logger.Log(_stillRunningLogLimiter.GetLogLevel(), "Starting at: {Time}", SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
         return Task.CompletedTask;
     }
 
-    protected abstract Task DoWork(CancellationToken stoppingToken);
-
-    protected virtual Task OnStop(CancellationToken stoppingToken)
+    /// <summary>
+    ///  If this errors, the Worker is faulted.
+    /// </summary>
+    protected virtual Task OnStartRequested(CancellationToken cancellationToken, bool isCurrentlyEnabled)
     {
-        _logger.LogInformation("Stopping at: {Time}", SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
+        _logger.Log(
+            _stillRunningLogLimiter.GetLogLevel(),
+            "Start requested at: {Time}. Service enabled status: {EnabledStatus}",
+            SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs(),
+            isCurrentlyEnabled ? "ENABLED" : "DISABLED"
+        );
         return Task.CompletedTask;
     }
 
-    private async Task ExecuteLoopIteration(CancellationToken stoppingToken)
+    /// <summary>
+    ///  If this errors, the Worker is faulted.
+    /// </summary>
+    protected virtual Task OnStopRequested(CancellationToken nonGracefulShutdownToken)
     {
-        _logger.Log(_stillRunningLogLimiter.GetLogLevel(),  "Still running at {Time}", SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
-        await DoWork(stoppingToken);
+        _logger.LogInformation(
+            "{GracefulState} stop requested. Stopping at: {Time}",
+            nonGracefulShutdownToken.IsCancellationRequested ? "Non-graceful" : "Graceful",
+            SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs()
+        );
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///  If this errors, the Worker is faulted.
+    /// </summary>
+    protected virtual Task OnStoppedSuccessfully()
+    {
+        _logger.LogInformation("Stopped successfully at: {Time}",  SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
+        return Task.CompletedTask;
+    }
+
+    private async Task RunLoopWhilstNotCancelled(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            _loopIterationStopwatch = Stopwatch.StartNew();
+            try
+            {
+                await ExecuteLoopIteration(cancellationToken);
+                var remainingTime = GetRemainingRestartDelay();
+                if (remainingTime > TimeSpan.Zero)
+                {
+                    await Task.Delay(remainingTime, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                if (ex.ShouldBeConsideredAppFatal())
+                {
+                    _logger.LogError(ex, "An app-fatal error occurred. Rethrowing...");
+                    throw;
+                }
+
+                // Whilst catching/handling all exceptions is typically incorrect, there are many exceptions that can
+                // be thrown by HttpClients and Npgsql, and it is safer to assume that any exceptions that bubble up
+                // to here are not state corrupting, than risk missing to catch a transient exception here, and causing
+                // a key Worker to crash.
+                // If only fatally failing on known System errors is good enough for ASP.NET Core (eg during creating
+                // an API call response), it's good enough for us.
+
+                var remainingTime = GetRemainingRestartAfterErrorDelay();
+                _logger.LogError(ex, "An error occurred. Will restart work in {Delay}ms", remainingTime.Milliseconds);
+                if (remainingTime > TimeSpan.Zero)
+                {
+                    await Task.Delay(remainingTime, cancellationToken);
+                }
+            }
+        }
+    }
+
+    private async Task ExecuteLoopIteration(CancellationToken cancellationToken)
+    {
+        var isEnabled = IsCurrentlyEnabled();
+        var wasLastEnabled = _wasEnabledAtLastLoopIteration;
+        _wasEnabledAtLastLoopIteration = isEnabled;
+        if (isEnabled)
+        {
+            if (wasLastEnabled == false)
+            {
+                _logger.LogInformation("Detected as re-enabled at {Time}, service will start doing work in a loop again", SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
+            }
+
+            _logger.Log(_stillRunningLogLimiter.GetLogLevel(),  "Still running at {Time}", SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
+            await DoWork(cancellationToken);
+        }
+        else
+        {
+            if (wasLastEnabled == true)
+            {
+                _logger.LogInformation("Detected as disabled at {Time}. Service won't do work till re-enabled", SystemClock.Instance.GetCurrentInstant().AsUtcIsoDateToSecondsForLogs());
+            }
+        }
+    }
+
+    private void TrackFatalWorkerException(bool isStopRequested, Exception ex, string lifeCycleDescription)
+    {
+        FaultedException = ex;
+        IsFaulted = true;
+
+        if (isStopRequested)
+        {
+            if (ex is OperationCanceledException)
+            {
+                _logger.LogDebug(
+                    ex,
+                    "Expected operation cancelled exception whilst worker stopping during {LifeCycleDescription}",
+                    lifeCycleDescription
+                );
+            }
+
+            _logger.LogWarning(
+                ex,
+                "Unexpected exception whist worker stopping during {LifeCycleDescription}",
+                lifeCycleDescription
+            );
+        }
+
+        // This should never happen in the execute loop. If this happens, this is likely a failure of the LoopedWorkerBase
+        // class to properly catch Exceptions.
+
+        // Some workers (eg node workers) can get restarted as they're run by the NodeWorkersRunner.
+        // Global services can't, and this will need to trigger an application exit in order to get restarted.
+        if (_behaviourOnFault == BehaviourOnFault.ApplicationExit)
+        {
+            _logger.LogCritical(
+                ex,
+                "THE PROCESS WILL BE SHUTDOWN. Crucial worker crashed unexpectedly during {LifeCycleDescription}, and the worker was configured to cause the application to exit so that it can be restarted automatically",
+                lifeCycleDescription
+            );
+            Environment.Exit(1);
+        }
+        else
+        {
+            _logger.LogError(
+                ex,
+                "Worker failed fatally and unexpectedly during {LifeCycleDescription}",
+                lifeCycleDescription
+            );
+        }
     }
 }

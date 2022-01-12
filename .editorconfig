@@ -285,6 +285,7 @@ dotnet_diagnostic.SX1309.severity = warning
 # [Resharper] - see https://www.jetbrains.com/help/rider/EditorConfig_Index.html
 resharper_inconsistent_naming_highlighting = none # Resharper disagrees with IDE1006 for public static fields
 resharper_redundant_anonymous_type_property_name_highlighting = none # Explicit is useful
+resharper_bitwise_operator_on_enum_without_flags_highlighting = none # BitwiseOperatorOnEnumWithoutFlags - PostgreSQL NpgsqlDbTypes unfortunately don't have the Flags property
 
 # None
 

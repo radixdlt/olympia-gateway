@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  version: 1.0.2
+  version: 1.0.3
   title: Radix Gateway API
   license:
     name: The Radix License, Version 1.0
@@ -1603,6 +1603,7 @@ components:
           MessageTooLongError: "#/components/schemas/MessageTooLongError"
           CouldNotConstructFeesError: "#/components/schemas/CouldNotConstructFeesError"
           InvalidRequestError: "#/components/schemas/InvalidRequestError"
+          NotSyncedUpError: "#/components/schemas/NotSyncedUpError"
           InternalServerError: "#/components/schemas/InternalServerError"
     InternalServerError:
       allOf:
@@ -1618,6 +1619,26 @@ components:
             cause:
               description: Gives a human readable message - likely just a trace ID for reporting the error.
               type: string
+    NotSyncedUpError:
+      allOf:
+        - $ref: "#/components/schemas/GatewayError"
+        - type: object
+          required:
+            - request_type
+            - current_sync_delay_seconds
+            - max_allowed_sync_delay_seconds
+          properties:
+            request_type:
+              description: The request type that triggered this exception.
+              type: string
+            current_sync_delay_seconds:
+              description: The current delay between the Gateway DB and the network ledger round timestamp.
+              type: integer
+              format: int64
+            max_allowed_sync_delay_seconds:
+              description: The maximum allowed delay between the Gateway DB and the network ledger round timestamp for this `request_type`.
+              type: integer
+              format: int64
     InvalidRequestError:
       allOf:
         - $ref: "#/components/schemas/GatewayError"

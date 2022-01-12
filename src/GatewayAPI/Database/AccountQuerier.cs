@@ -158,7 +158,6 @@ public class AccountQuerier : IAccountQuerier
     )
     {
         return await GetAccountValidatorCombinedStakeSnapshot(accountAddress.Address, validatorAddress.Address, ledgerState)
-            .SingleOrDefaultAsync()
             ?? new CombinedStakeSnapshot(
                 validatorAddress.Address,
                 AccountValidatorStakeSnapshot.GetDefault(),
@@ -205,16 +204,14 @@ public class AccountQuerier : IAccountQuerier
             return new Dictionary<string, TokenAmount>();
         }
 
-        return await _dbContext.AccountResourceBalanceHistoryAtVersion(ledgerState._Version)
-            .Where(arb => arb.AccountId == account.Id)
+        return await _dbContext.AccountResourceBalanceHistoryForAccountIdAtVersion(account.Id, ledgerState._Version)
             .Include(arb => arb.Resource)
             .ToDictionaryAsync(x => x.Resource.ResourceIdentifier, x => x.BalanceEntry.Balance);
     }
 
     private async Task<List<Gateway.TokenAmount>> GetAccountResourceBalancesAtState(long accountId, Gateway.LedgerState ledgerState)
     {
-        var balances = await _dbContext.AccountResourceBalanceHistoryAtVersion(ledgerState._Version)
-            .Where(arb => arb.AccountId == accountId)
+        var balances = await _dbContext.AccountResourceBalanceHistoryForAccountIdAtVersion(accountId, ledgerState._Version)
             .Include(arb => arb.Resource)
             .ToListAsync();
 
@@ -313,31 +310,29 @@ public class AccountQuerier : IAccountQuerier
         var stateVersion = ledgerState._Version;
 
         return
-            from stakeHistory in _dbContext.AccountValidatorStakeHistoryAtVersion(stateVersion)
-            join validatorHistory in _dbContext.ValidatorStakeHistoryAtVersion(stateVersion)
+            from stakeHistory in _dbContext.AccountValidatorStakeHistoryForAccountIdAtVersion(accountId, stateVersion)
+            join validatorHistory in _dbContext.ValidatorStakeHistoryAtVersionForAnyValidator(stateVersion)
                 on stakeHistory.ValidatorId equals validatorHistory.ValidatorId
             join validator in _dbContext.Validators
                 on stakeHistory.ValidatorId equals validator.Id
-            where stakeHistory.AccountId == accountId
             select new CombinedStakeSnapshot(validator.Address, stakeHistory.StakeSnapshot, validatorHistory.StakeSnapshot)
         ;
     }
 
-    private IQueryable<CombinedStakeSnapshot> GetAccountValidatorCombinedStakeSnapshot(string accountAddress, string validatorAddress, Gateway.LedgerState ledgerState)
+    private async Task<CombinedStakeSnapshot?> GetAccountValidatorCombinedStakeSnapshot(string accountAddress, string validatorAddress, Gateway.LedgerState ledgerState)
     {
         var stateVersion = ledgerState._Version;
 
-        return
-            from stakeHistory in _dbContext.AccountValidatorStakeHistoryAtVersion(stateVersion)
-            join validatorHistory in _dbContext.ValidatorStakeHistoryAtVersion(stateVersion)
+        var accountId = await _dbContext.Account(accountAddress, ledgerState._Version).Select(a => a.Id).SingleOrDefaultAsync();
+        var validatorId = await _dbContext.Validator(validatorAddress, ledgerState._Version).Select(v => v.Id).SingleOrDefaultAsync();
+
+        return await (
+            from stakeHistory in _dbContext.AccountValidatorStakeHistoryForAccountIdAtVersion(accountId, stateVersion)
+            join validatorHistory in _dbContext.ValidatorStakeHistoryAtVersionForValidatorId(validatorId, stateVersion)
                 on stakeHistory.ValidatorId equals validatorHistory.ValidatorId
             join validator in _dbContext.Validators
                 on stakeHistory.ValidatorId equals validator.Id
-            join account in _dbContext.Accounts
-                on stakeHistory.AccountId equals account.Id
-            where account.Address == accountAddress
-                  && validator.Address == validatorAddress
             select new CombinedStakeSnapshot(validator.Address, stakeHistory.StakeSnapshot, validatorHistory.StakeSnapshot)
-        ;
+        ).SingleOrDefaultAsync();
     }
 }
