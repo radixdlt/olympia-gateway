@@ -47,7 +47,7 @@ jobs:
           curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 > tmp.collection.json
       - name: Change the baseUrl variable name
         run: |
-          sed -i 's/{{baseUrl}}/"{{gatewayBaseUrl}}"/g' tmp.collection.json
+          sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
       - name: Update the collection
         run: |
           curl -X PUT -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
