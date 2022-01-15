@@ -532,7 +532,7 @@ components:
         network_identifier:
           network: mainnet
         account_identifier:
-          address: sender_address_1
+          address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
     AccountBalancesResponse:
       type: object
       required:
@@ -573,7 +573,7 @@ components:
         network_identifier:
           network: mainnet
         account_identifier:
-          address: sender_address_1
+          address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
     AccountStakesResponse:
       type: object
       required:
@@ -621,7 +621,7 @@ components:
         network_identifier:
           network: mainnet
         account_identifier:
-          address: sender_address_1
+          address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
     AccountUnstakesResponse:
       type: object
       required:
@@ -680,7 +680,7 @@ components:
         network_identifier:
           network: mainnet
         account_identifier:
-          address: sender_address_1
+          address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
         cursor: '0'
         limit: 1
     AccountTransactionsResponse:
@@ -874,7 +874,7 @@ components:
         actions:
           - type: TransferTokens
             from_account:
-              address: sender_address_1
+              address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
             to_account:
               address: rdx1qspcvwwuf8s549zyspz683v4n93g9kzpn6u6a9yalwzt00zghg75lmsftwv29
             amount:
@@ -882,7 +882,7 @@ components:
                 rri: xrd_rr1qy5wfsfh
               value: '123000000000000000'
         fee_payer:
-          address: sender_address_1
+          address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
         disable_token_mint_and_burn: true
     TransactionBuildResponse:
       type: object
