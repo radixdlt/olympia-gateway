@@ -3,7 +3,7 @@ name: sync-postman-collection
 on:
   push:
     branches:
-      - *
+      - "*"
 
 jobs:
   cancel_running_workflows:
