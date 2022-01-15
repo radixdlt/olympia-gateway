@@ -31,7 +31,7 @@ jobs:
       - name: Download the latest spec
         run: |
           wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
-        run: ls
+      - run: ls
       - name: Download the latest spec
       - name: Generate and upload Postman's Gateway API collection
         run: |
