@@ -33,8 +33,8 @@ jobs:
           wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
       - name: Replace hardcoded values with variables
         run: |
-          sed -i 'rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88/{{sender_address_1}}/' gateway-api-spec.yaml &&\
-          sed -i 'rdx1qspcvwwuf8s549zyspz683v4n93g9kzpn6u6a9yalwzt00zghg75lmsftwv29/{{receiver_address_1}}/' gateway-api-spec.yaml
+          sed -i 's/rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88/{{sender_address_1}}/g' gateway-api-spec.yaml &&\
+          sed -i 's/rdx1qspcvwwuf8s549zyspz683v4n93g9kzpn6u6a9yalwzt00zghg75lmsftwv29/{{receiver_address_1}}/g' gateway-api-spec.yaml
       - name: Generate and upload Postman's Gateway API collection
         run: |
           npx @apideck/portman -l gateway-api-spec.yaml --syncPostman true --envFile .env --cliOptionsFile cliopts.json
