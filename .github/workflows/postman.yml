@@ -37,6 +37,7 @@ jobs:
           sed -i 's/mainnet/"{{network}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88/"{{sender_address_1}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/rdx1qspcvwwuf8s549zyspz683v4n93g9kzpn6u6a9yalwzt00zghg75lmsftwv29/"{{receiver_address_1}}"/g' gateway-api-spec.yaml &&\
+          sed -i 's/rv1qf2x63qx4jdaxj83kkw2yytehvvmu6r2xll5gcp6c9rancmrfsgfwttnczx/"{{validator_address_1}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798/"{{public_key_hex}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/xrd_rr1qy5wfsfh/"{{native_token_rri}}"/g' gateway-api-spec.yaml
       - run: cat gateway-api-spec.yaml
