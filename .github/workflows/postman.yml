@@ -42,7 +42,7 @@ jobs:
         run: |
           npx @apideck/portman -l gateway-api-spec.yaml --syncPostman true --envFile .env --cliOptionsFile cliopts.json \
             --postmanUid 14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361
-      - name: Download the new collection
+      - name: Download the collection
         run: |
           curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 > tmp.collection.json
       - name: Change the baseUrl variable name

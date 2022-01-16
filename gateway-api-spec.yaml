@@ -1524,6 +1524,8 @@ components:
         network:
           description: The name of the network against which the request is made.
           type: string
+      example:
+        network: example!!        
     AccountIdentifier:
       type: object
       required:
