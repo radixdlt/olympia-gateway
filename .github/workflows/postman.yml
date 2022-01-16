@@ -38,7 +38,7 @@ jobs:
           sed -i 's/rdx1qspcvwwuf8s549zyspz683v4n93g9kzpn6u6a9yalwzt00zghg75lmsftwv29/"{{receiver_address_1}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/rv1qf2x63qx4jdaxj83kkw2yytehvvmu6r2xll5gcp6c9rancmrfsgfwttnczx/"{{validator_address_1}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/xrd_rr1qy5wfsfh/"{{native_token_rri}}"/g' gateway-api-spec.yaml
-      - name: Generate and upload Postman's Gateway API collection
+      - name: Update Postman's Gateway API collection from the spec
         run: |
           npx @apideck/portman -l gateway-api-spec.yaml --syncPostman true --envFile .env --cliOptionsFile cliopts.json \
             --postmanUid 14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361
@@ -52,8 +52,9 @@ jobs:
         run: |
           curl -X PUT -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
             https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 --data "@tmp.collection.json"
-      #- name: Prepare local environment
-      #   run: | pwd
-      #- name: Validate against RCNET
-      #  run: |
-      #    npx @apideck/portman -l gateway-api-spec.yaml --runNewman
+      - name: Download RCnet's environment
+         run: |
+           curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26 > rcnet.env.json
+      - name: Validate the collection against RCnet
+        run: |
+          npx @apideck/portman -l gateway-api-spec.yaml --runNewman -e rcnet.env.json
