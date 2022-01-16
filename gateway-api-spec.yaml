@@ -997,7 +997,7 @@ components:
           $ref: "#/components/schemas/TargetLedgerState"
       example:
         network_identifier:
-          network: mainnet-req
+          network: mainnet
         ledger_state:
         target_ledger_state:
     TokenRequest:
@@ -1525,7 +1525,7 @@ components:
           description: The name of the network against which the request is made.
           type: string
       example:
-        network: example!!        
+        network: example!!
     AccountIdentifier:
       type: object
       required:
