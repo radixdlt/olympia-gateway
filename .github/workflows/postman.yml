@@ -28,9 +28,9 @@ jobs:
           path: cliopts.json
           contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
           write-mode: append
-      - name: Download the latest spec
+      - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
         run: |
-          wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
+          wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/feature/nt-207-publish-postman-collections-from-spec/gateway-api-spec.yaml
       - name: Replace hardcoded values with variables
         run: |
           sed -i 's/mainnet/"{{network}}"/g' gateway-api-spec.yaml &&\
