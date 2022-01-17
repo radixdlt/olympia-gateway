@@ -27,7 +27,7 @@ jobs:
         with:
           path: cliopts.json
           #contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
-          content: |
+          contents: |
             echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop) '$(date +'%b %d, %H:%M')'"}'
           write-mode: append
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
