@@ -31,7 +31,6 @@ jobs:
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
         run: |
           wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/feature/nt-207-publish-postman-collections-from-spec/gateway-api-spec.yaml
-      - run: cat gateway-api-spec.yaml
       - name: Replace hardcoded values with variables
         run: |
           sed -i 's/mainnet/"{{network}}"/g' gateway-api-spec.yaml &&\
@@ -40,24 +39,24 @@ jobs:
           sed -i 's/rv1qf2x63qx4jdaxj83kkw2yytehvvmu6r2xll5gcp6c9rancmrfsgfwttnczx/"{{validator_address_1}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798/"{{public_key_hex}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/xrd_rr1qy5wfsfh/"{{native_token_rri}}"/g' gateway-api-spec.yaml
-      - run: cat gateway-api-spec.yaml
       - name: Update Postman's Gateway API collection from the spec
         run: |
-          npx @apideck/portman -l gateway-api-spec.yaml --syncPostman true --envFile .env --cliOptionsFile cliopts.json \
+          npx @apideck/portman -l gateway-api-spec.yaml --syncPostman true -o tmp.collection.json --envFile .env --cliOptionsFile cliopts.json \
             --postmanUid 14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361
       - name: Download the collection
         run: |
-          curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 > tmp.collection.json
+          curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 > tmp.collection.json
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
       - name: Update the collection
         run: |
-          curl -X PUT -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
+          curl -X PUT -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
             https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 --data "@tmp.collection.json"
-      - name: Download RCnet's environment
-        run: |
-           curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26 > rcnet.env.json
+      #- name: Download RCnet's environment
+      #  run: |
+      #     curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26 > rcnet.env.json
       - name: Validate the collection against RCnet
         run: |
-          npx @apideck/portman -l gateway-api-spec.yaml --runNewman -e rcnet.env.json -b https://rcnet-gateway.radixdlt.com
+          newman run tmp.collection.json -e https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
+            --verbose --bail
