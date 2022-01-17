@@ -23,14 +23,7 @@ jobs:
           contents: POSTMAN_API_KEY=${{secrets.POSTMAN_API_TOKEN}}
           write-mode: append
       - name: Create Portman configuration for Gateway API
-        uses: DamianReeves/write-file-action@v1.0
-        with:
-          path: cliopts@.json
-          contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
-          write-mode: overwrite
-      - run: echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)' $(date +%b\ %d,\ %H:%m)'"}' > cliopts.json
-      - run: echo $(date +%b\ %d,\ %H:%m)
-      - run: cat cliopts.json
+        run: echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)' $(date +%b\ %d,\ %H:%m)'"}' > cliopts.json
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
         run: |
           wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/feature/nt-207-publish-postman-collections-from-spec/gateway-api-spec.yaml
@@ -65,4 +58,4 @@ jobs:
         run: |
           newman run tmp.collection.json \
             --environment https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
-            --bail
+            --bail --folder Status --folder Account --folder Token --folder Validator
