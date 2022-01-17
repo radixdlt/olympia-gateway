@@ -1127,6 +1127,7 @@ components:
           network: please
         public_key:
           hex: work
+        symbol: asdfas
     TokenDeriveResponse:
       type: object
       required:
