@@ -682,7 +682,7 @@ components:
         account_identifier:
           address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
         cursor: '0'
-        limit: 1
+        limit: 10
     AccountTransactionsResponse:
       type: object
       required:
