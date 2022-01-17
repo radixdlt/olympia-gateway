@@ -1113,8 +1113,6 @@ components:
       type: object
       required:
         - network_identifier
-        - public_key
-        - symbol
       properties:
         network_identifier:
           $ref: "#/components/schemas/NetworkIdentifier"
@@ -1124,10 +1122,7 @@ components:
           type: string
       example:
         network_identifier:
-          network: please
-        public_key:
-          hex: work
-        symbol: asdfas
+          network: shit
     TokenDeriveResponse:
       type: object
       required:
