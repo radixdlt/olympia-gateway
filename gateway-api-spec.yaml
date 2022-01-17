@@ -1124,9 +1124,9 @@ components:
           type: string
       example:
         network_identifier:
-          network: mainnet
+          network: please
         public_key:
-          hex: 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+          hex: work
     TokenDeriveResponse:
       type: object
       required:
