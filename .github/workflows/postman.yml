@@ -54,14 +54,8 @@ jobs:
         run: |
           curl -X PUT -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
             https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 --data "@tmp.collection.json"
-      #- name: Download RCnet's environment
-      #  run: |
-      #     curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26 > rcnet.env.json
-      - name: test
-        run: |
-          sed 's/(\"owner\":{\"type\":\"object\",\"required\":[\"address\"],\"properties\":{\"address\":{\"description\":\"The radix address of the account.\",\"type\":\"string\"})/(\"owner\":null)/g' tmp.collection.json
       - name: Validate the collection against RCnet
         run: |
           newman run tmp.collection.json \
             --environment https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
-            --verbose --bail
+            --bail
