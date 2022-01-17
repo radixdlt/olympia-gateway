@@ -1496,6 +1496,7 @@ components:
         message:
           description: The message bytes, hex encoded.
           type: string
+          nullable: true
     TokenAmount:
       type: object
       required:
