@@ -1123,8 +1123,10 @@ components:
         symbol:
           type: string
       example:
-        network: mainnet
-        public_key: 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+        network_identifier:
+          network: mainnet
+        public_key:
+          hex: 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
     TokenDeriveResponse:
       type: object
       required:
