@@ -1113,6 +1113,8 @@ components:
       type: object
       required:
         - network_identifier
+        - public_key
+        - symbol
       properties:
         network_identifier:
           $ref: "#/components/schemas/NetworkIdentifier"
@@ -1120,9 +1122,6 @@ components:
           $ref: "#/components/schemas/PublicKey"
         symbol:
           type: string
-      example:
-        network_identifier:
-          network: shit
     TokenDeriveResponse:
       type: object
       required:
@@ -1140,6 +1139,12 @@ components:
           $ref: "#/components/schemas/NetworkIdentifier"
         public_key:
           $ref: "#/components/schemas/PublicKey"
+      example:
+        network_identifier:
+          network: mainnet
+        public_key:
+          hex: 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+        symbol: token123
     AccountDeriveResponse:
       type: object
       required:
