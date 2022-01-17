@@ -26,7 +26,8 @@ jobs:
         uses: DamianReeves/write-file-action@v1.0
         with:
           path: cliopts.json
-          contents: | echo 'abc'
+          contents: |
+            echo "abc"
           #  echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop) '$(date +'%b %d, %H:%M')'"}'
           #contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
           write-mode: overwrite
