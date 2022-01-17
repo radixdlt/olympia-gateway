@@ -26,12 +26,9 @@ jobs:
         uses: DamianReeves/write-file-action@v1.0
         with:
           path: cliopts.json
-          contents: |
-            echo "abc"
+          contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
+          write-mode: append
           #  echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop) '$(date +'%b %d, %H:%M')'"}'
-          #contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
-          write-mode: overwrite
-      - run: cat cliopts.json
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
         run: |
           wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/feature/nt-207-publish-postman-collections-from-spec/gateway-api-spec.yaml
@@ -45,6 +42,7 @@ jobs:
           sed -i 's/ef71a9d6c63444fce6abd2df8fab2755cfb51f6794e578f60d99337193811842/"{{tx_id}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/hpyron_rr1qdukq6q534plnen70k95f80q45cktg0mhmzrzpfyz8jqmgqqqe/"{{token_rri}}"/g' gateway-api-spec.yaml &&\
           sed -i 's/xrd_rr1qy5wfsfh/"{{native_token_rri}}"/g' gateway-api-spec.yaml
+      - run: cat cliopts.json
       - name: Update Postman's Gateway API collection from the spec
         run: |
           npx @apideck/portman -l gateway-api-spec.yaml --syncPostman true -o tmp.collection.json --envFile .env --cliOptionsFile cliopts.json \
