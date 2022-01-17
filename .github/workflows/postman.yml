@@ -28,6 +28,7 @@ jobs:
           path: cliopts2.json
           contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
           write-mode: overwrite
+      - run: echo $(date +%b\ %d,\ %H:%m)
       - name: Temp create config
         run: echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)' $(date +%b\ %d,\ %H:%m)'"}' > cliopts.json
       - run: cat cliopts.json
