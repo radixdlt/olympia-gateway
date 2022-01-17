@@ -54,8 +54,6 @@ jobs:
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
-      - name: aa
-        run: pwd
       #  echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop) '$(date +'%b %d, %H:%M')'"}'
       - name: Update the collection
         run: |
