@@ -25,13 +25,9 @@ jobs:
       - name: Create Portman configuration for Gateway API
         uses: DamianReeves/write-file-action@v1.0
         with:
-          path: cliopts2.json
+          path: cliopts.json
           contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
           write-mode: overwrite
-      - run: echo $(date +%b\ %d,\ %H:%m)
-      - name: Temp create config
-        run: echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)' $(date +%b\ %d,\ %H:%m)'"}' > cliopts.json
-      - run: cat cliopts.json
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
         run: |
           wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/feature/nt-207-publish-postman-collections-from-spec/gateway-api-spec.yaml
@@ -55,7 +51,6 @@ jobs:
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
-      #  echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop) '$(date +'%b %d, %H:%M')'"}'
       - name: Update the collection
         run: |
           curl -X PUT -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
