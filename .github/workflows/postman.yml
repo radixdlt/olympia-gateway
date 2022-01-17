@@ -65,5 +65,4 @@ jobs:
         run: |
           newman run tmp.collection.json \
             --environment https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
-            --folder Status --folder Account --folder Token --folder Validator \
-            --bail
+            --bail --folder Status --folder Account --folder Token --folder Validator
