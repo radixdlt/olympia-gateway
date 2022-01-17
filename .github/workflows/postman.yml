@@ -25,9 +25,10 @@ jobs:
       - name: Create Portman configuration for Gateway API
         uses: DamianReeves/write-file-action@v1.0
         with:
-          path: cliopts.json
+          path: cliopts@.json
           contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
           write-mode: overwrite
+      - run: echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)' $(date +%b\ %d,\ %H:%m)'"}' > cliopts.json
       - run: echo $(date +%b\ %d,\ %H:%m)
       - run: cat cliopts.json
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
@@ -60,8 +61,9 @@ jobs:
         run: |
           curl -X PUT -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
             https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 --data "@tmp.collection.json"
-      #- name: Validate the collection against RCnet
-      #  run: |
-      #    newman run tmp.collection.json \
-      #      --environment https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
-      #      --bail
+      - name: Validate the collection against RCnet
+        run: |
+          newman run tmp.collection.json \
+            --environment https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
+            --folder status
+            --bail
