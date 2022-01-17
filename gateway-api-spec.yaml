@@ -1016,7 +1016,7 @@ components:
         network_identifier:
           network: mainnet
         token_identifier:
-          rri: xrd_rr1qy5wfsfh
+          rri: hpyron_rr1qdukq6q534plnen70k95f80q45cktg0mhmzrzpfyz8jqmgqqqe
     LedgerState:
       description: |
         The ledger state against which the response was generated.
@@ -1444,7 +1444,6 @@ components:
         granularity:
           "$ref": "#/components/schemas/BigInteger"
         owner:
-          optional: true
           "$ref": "#/components/schemas/AccountIdentifier"
     TransactionInfo:
       type: object
