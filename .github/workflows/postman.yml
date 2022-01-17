@@ -26,10 +26,10 @@ jobs:
         uses: DamianReeves/write-file-action@v1.0
         with:
           path: cliopts.json
-          contents: echo 'abc'
+          contents: | echo 'abc'
           #  echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop) '$(date +'%b %d, %H:%M')'"}'
           #contents: '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}'
-          write-mode: append
+          write-mode: overwrite
       - run: cat cliopts.json
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
         run: |
