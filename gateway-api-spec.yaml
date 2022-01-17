@@ -1444,6 +1444,7 @@ components:
         granularity:
           "$ref": "#/components/schemas/BigInteger"
         owner:
+          optional: true
           "$ref": "#/components/schemas/AccountIdentifier"
     TransactionInfo:
       type: object

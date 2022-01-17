@@ -58,5 +58,6 @@ jobs:
       #     curl -X GET -H "X-API-KEY: ${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26 > rcnet.env.json
       - name: Validate the collection against RCnet
         run: |
-          newman run tmp.collection.json -e https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
+          newman run tmp.collection.json \
+            --environment https://api.getpostman.com/environments/3671706-92569d6f-4d81-4b15-a5a2-d65afc8fdc26?apikey=${{secrets.POSTMAN_API_TOKEN}} \
             --verbose --bail
