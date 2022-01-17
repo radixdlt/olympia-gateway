@@ -50,17 +50,17 @@ jobs:
       - name: Update Postman's Gateway API collection from the spec
         run: |
           npx @apideck/portman -l gateway-api-spec.yaml --syncPostman true -o tmp.collection.json --envFile .env --cliOptionsFile cliopts.json \
-            --postmanUid 14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361
+            --postmanUid 14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e
       - name: Download the collection
         run: |
-          curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 > tmp.collection.json
+          curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e > tmp.collection.json
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
       - name: Update the collection
         run: |
           curl -X PUT -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
-            https://api.getpostman.com/collections/14449947-bd6d0ef1-52fb-431a-8c5d-3ea7be7c5361 --data "@tmp.collection.json"
+            https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e --data "@tmp.collection.json"
       - name: Validate the collection against RCnet
         run: |
           newman run tmp.collection.json \
