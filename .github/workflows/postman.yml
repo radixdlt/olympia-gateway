@@ -26,7 +26,7 @@ jobs:
           contents: POSTMAN_API_KEY=${{secrets.POSTMAN_API_TOKEN}}
           write-mode: append
       - name: Create Portman configuration for Gateway API
-        run: echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)' $(date +%b\ %d,\ %H:%m)'"}' > cliopts.json
+        run: echo '{"postmanWorkspaceName":"Team Workspace","collectionName":"Gateway API (develop)"}' > cliopts.json
       - name: Download the latest spec #https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
         run: |
           wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/feature/nt-207-publish-postman-collections-from-spec/gateway-api-spec.yaml
