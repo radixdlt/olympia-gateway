@@ -1,12 +1,10 @@
 name: sync-postman-collection
 
-#on:
-#  push:
-#    branches:
-#      - develop
-
-on: [push]
-
+on:
+  push:
+    branches:
+      - develop
+      
 jobs:
   cancel_running_workflows:
     name: Cancel running workflows
@@ -57,7 +55,7 @@ jobs:
           curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e > tmp.collection.json
       - name: Add a timestamp to the name
         run: |
-          sed -i 's/"name":".*","description":"This API/"name":"Gateway API (develop) ${{steps.date.outputs.date}}","description":"This API/' tmp.collection.json
+          sed -i 's/"name":".*","description":"This API/"name":"Gateway API (develop) ${{steps.date.outputs.date}} UTC","description":"This API/' tmp.collection.json
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
