@@ -880,7 +880,7 @@ components:
             amount:
               token_identifier:
                 rri: xrd_rr1qy5wfsfh
-              value: '100'
+              value: '123000000000000000'
         fee_payer:
           address: rdx1qspacch6qjqy7awspx304sev3n4em302en25jd87yrh4hp47grr692cm0kv88
         disable_token_mint_and_burn: true
@@ -1520,7 +1520,6 @@ components:
         message:
           description: The message bytes, hex encoded.
           type: string
-          nullable: true
     TokenAmount:
       type: object
       required:
