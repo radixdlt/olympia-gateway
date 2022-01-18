@@ -16,6 +16,9 @@ jobs:
     environment: Postman
     runs-on: ubuntu-20.04
     steps:
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%b %d, %H:%M')"
       - name: Setup Postman credentials
         uses: DamianReeves/write-file-action@v1.0
         with:
@@ -47,6 +50,9 @@ jobs:
       - name: Download the collection
         run: |
           curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e > tmp.collection.json
+      - name: Add a timestamp to the name
+        run: |
+          sed -i 's/"Gateway API (develop)"/"Gateway API (develop) ${{steps.date.outputs.date}}"/g' tmp.collection.json
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
