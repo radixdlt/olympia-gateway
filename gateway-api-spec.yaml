@@ -6,11 +6,9 @@ info:
     name: The Radix License, Version 1.0
     url: https://www.radixfoundation.org/licenses/LICENSE-v1
   description: |
-    This API is designed to enable clients to efficiently query information on the RadixDLT ledger, and allow clients to
-    simply build and submit transactions to the network.
+    This API is designed to enable clients to efficiently query information on the RadixDLT ledger, and allow clients to simply build and submit transactions to the network.
 
-    The API is designed for use by the Radix Foundation's [Desktop Wallet](https://wallet.radixdlt.com/) and
-    [Explorer](https://explorer.radixdlt.com/), and replaces the original Olympia "Archive Node API".
+    The API is designed for use by the Radix Foundation's [Desktop Wallet](https://wallet.radixdlt.com/) and [Explorer](https://explorer.radixdlt.com/), and replaces the original Olympia "Archive Node API".
 
     # Gateway API Overview
 
@@ -22,8 +20,7 @@ info:
     * `/validator/*` and `/validators` - To query validator-related information
     * `/transaction/*` - To build, finalize and submit transactions, and to read the status and content of submitted and on-ledger transactions.
 
-    The Gateway API is implemented by the [Network Gateway](https://github.com/radixdlt/radixdlt-network-gateway), which is configured
-    to read from full node/s to extract and index data from the network.
+    The Gateway API is implemented by the [Network Gateway](https://github.com/radixdlt/radixdlt-network-gateway), which is configured to read from full node/s to extract and index data from the network.
 
     # Gateway API Format
 
@@ -32,25 +29,18 @@ info:
     * All requests are POST requests.
     * Any error is returned with an HTTP status code of 500, with a returned error object.
       * The error object contains an HTTP-like `code`
-      * The error object also contains a structured/typed `details` sub-object, with a `type` discriminator,
-        allowing for structured error interpretation in clients.
+      * The error object also contains a structured/typed `details` sub-object, with a `type` discriminator, allowing for structured error interpretation in clients.
 
     # Comparison to other Radix APIs
 
-    * [Core API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/core/api.yaml) -
-      The Core API is a low level API exposed by full nodes, and designed for use on internal networks. It is primarily designed
-      for network integrations such as exchanges, ledger analytics providers, or hosted ledger data dashboards.
-      The Core API provides endpoints for reading the mempool, constructing transactions and also exposes a stream of committed transactions.
+    * [Core API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/core/api.yaml) - The Core API is a low level API exposed by full nodes, and designed for use on internal networks. It is primarily designed for network integrations such as exchanges, ledger analytics providers, or hosted ledger data dashboards. The Core API provides endpoints for reading the mempool, constructing transactions and also exposes a stream of committed transactions.
 
-    * [System API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/system/api.yaml) -
-      The System API is a private API exposed by full nodes to read system status.
+    * [System API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/system/api.yaml) - The System API is a private API exposed by full nodes to read system status.
 
-    The Gateway API offers a much wider range of query options and is more performant than the Core API. It is built on top of the Core API,
-    ingesting data via the Core API transaction stream into a relational database.
+    The Gateway API offers a much wider range of query options and is more performant than the Core API. It is built on top of the Core API, ingesting data via the Core API transaction stream into a relational database.
 
-    The Gateway API transaction/construction endpoints operate with the concept of "actions" - these are higher-levels of intent compared with the
-    Core API, which makes it easier for clients to use. The Core API should be used if you require more power/flexiblity for managing UTXOs, or
-    submitting transactions which can't be mapped to a Gateway API action.
+    The Gateway API transaction/construction endpoints operate with the concept of "actions" - these are higher-levels of intent compared with the Core API, which makes it easier for clients to use. The Core API should be used if you require more power/flexiblity for managing UTXOs, or submitting transactions which can't be mapped to a Gateway API action.
+
 servers:
   - url: http://localhost:5208
   - url: https://stokenet-gateway.radixdlt.com
@@ -654,8 +644,7 @@ components:
           "$ref": "#/components/schemas/TokenAmount"
         epochs_until_unlocked:
           description: |
-            The number of epochs until the XRD in this unstake will be released back to the account.
-            This delay is to enable stake to be slashed, if the validator misbehaves.
+            The number of epochs until the XRD in this unstake will be released back to the account. This delay is to enable stake to be slashed, if the validator misbehaves.
           type: integer
           format: int64
     AccountTransactionsRequest:
@@ -748,16 +737,11 @@ components:
               "$ref": "#/components/schemas/AccountIdentifier"
             amount:
               description: |
-                If present, this gives the amount of XRD to unstake.
-                This should be no more than the maximum estimated XRD of the stake position at the corresponding LedgerState.
-                Provide a PartialLedgerStateIdentifier matching the LedgerState of the response which provided the estimate
-                that was shared with the user; or simply use the `unstake_percentage` option.
+                If present, this gives the amount of XRD to unstake. This should be no more than the maximum estimated XRD of the stake position at the corresponding LedgerState. Provide a PartialLedgerStateIdentifier matching the LedgerState of the response which provided the estimate that was shared with the user; or simply use the `unstake_percentage` option.
               "$ref": "#/components/schemas/TokenAmount"
             unstake_percentage:
               description: |
-                The percentage of currently staked XRD to unstake, where the proportion is a proportion of the current
-                active stake at the given LedgerState. To be explicit, the referenced active state does not include pending
-                stake, pending unstake or locked unstake.
+                The percentage of currently staked XRD to unstake, where the proportion is a proportion of the current active stake at the given LedgerState. To be explicit, the referenced active state does not include pending stake, pending unstake or locked unstake.
               type: number
               minimum: 0
               maximum: 100
@@ -923,10 +907,7 @@ components:
           $ref: "#/components/schemas/Signature"
         submit:
           description: |
-            If true, the transaction is immediately submitted after finalization.
-            We recommend, however, that a transaction is submitted in a step after finalization.
-            This ensures that you have a transaction identifier on hand to monitor the transaction status, even
-            if the submission request failed with an uncertain error.
+            If true, the transaction is immediately submitted after finalization. However, we recommend that a transaction is submitted in a step after finalization. This ensures that you have a transaction identifier on hand to monitor the transaction status, even if the submission request failed with an uncertain error.
           type: boolean
     PublicKey:
       type: object
@@ -1014,8 +995,7 @@ components:
           rri: xrd_rr1qy5wfsfh
     LedgerState:
       description: |
-        The ledger state against which the response was generated.
-        Can be used to detect if the Network Gateway is returning up-to-date information.
+        The ledger state against which the response was generated. Can be used to detect if the Network Gateway is returning up-to-date information.
       type: object
       required:
         - version
@@ -1029,10 +1009,7 @@ components:
           format: int64
         timestamp:
           description: |
-            The round timestamp of the consensus round when this transaction was committed to ledger.
-            This is not guaranteed to be strictly increasing, as it is computed as an average across the validator set.
-            If this is significantly behind the current timestamp, the Network Gateway is likely reporting out-dated information,
-            or the network has stalled.
+            The round timestamp of the consensus round when this transaction was committed to ledger. This is not guaranteed to be strictly increasing, as it is computed as an average across the validator set. If this is significantly behind the current timestamp, the Network Gateway is likely reporting out-dated information, or the network has stalled.
           type: string
         epoch:
           description: The epoch number of the ledger at this state version.
@@ -1049,9 +1026,7 @@ components:
       properties:
         version:
           description: |
-            The latest-seen state version of the tip of the network's ledger.
-            If this is singificantly ahead of the current LedgerState version, the Network Gateway is possibly behind
-            and may be reporting out-dated information.
+            The latest-seen state version of the tip of the network's ledger. If this is singificantly ahead of the current LedgerState version, the Network Gateway is possibly behind and may be reporting outdated information.
           type: integer
           format: int64
     PartialLedgerStateIdentifier:
