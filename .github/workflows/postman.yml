@@ -55,7 +55,7 @@ jobs:
           curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e > tmp.collection.json
       - name: Add a timestamp to the name
         run: |
-          sed -i 's/"Gateway API (develop)"/"Gateway API (develop) ${{steps.date.outputs.date}}"/g' tmp.collection.json
+          sed -i 's/"Gateway API(.*?)"/"Gateway API (develop) ${{steps.date.outputs.date}}"/g' tmp.collection.json
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
