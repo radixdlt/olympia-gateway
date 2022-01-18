@@ -140,7 +140,7 @@ paths:
   "/token/derive":
     post:
       summary: Derive Token Identifier
-      description: Returns the Radix Resource Identifier of a newly created token an account with the given public key.
+      description: Returns the Radix Resource Identifier of a token with the given symbol, created by an account with the given public key.
       tags:
         - Token
       requestBody:
@@ -351,7 +351,7 @@ paths:
   "/validators":
     post:
       summary: Get Validators
-      description: Returns information about all validators, given a validator address.
+      description: Returns information about all validators.
       tags:
         - Validator
       requestBody:
@@ -479,10 +479,7 @@ paths:
     post:
       summary: Transaction Status
       description: |
-        Returns the status and contents of the transaction with the given transaction identifier.
-        Transaction identifiers which aren't recognised as either belonging to a committed transaction or a
-        transaction submitted through this Network Gateway may return a `TransactionNotFoundError`.
-        Transaction identifiers relating to failed transactions will, after a delay, also be report a `TransactionNotFoundError`.
+        Returns the status and contents of the transaction with the given transaction identifier. Transaction identifiers which aren't recognised as either belonging to a committed transaction or a transaction submitted through this Network Gateway may return a `TransactionNotFoundError`. Transaction identifiers relating to failed transactions will, after a delay, also be reported as a `TransactionNotFoundError`.
       tags:
         - Transaction
       requestBody:
