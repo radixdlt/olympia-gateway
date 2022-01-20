@@ -317,6 +317,11 @@ public class TransactionQuerier : ITransactionQuerier
         return inferredAction.Type switch
         {
             InferredActionType.CreateTokenDefinition => await GenerateCreateTokenDefinitionAction(),
+            InferredActionType.SelfTransfer => new Gateway.TransferTokens(
+                fromAccount: inferredAction.FromAccount!.AsGatewayAccountIdentifier(),
+                toAccount: inferredAction.ToAccount!.AsGatewayAccountIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+            ),
             InferredActionType.SimpleTransfer => new Gateway.TransferTokens(
                 fromAccount: inferredAction.FromAccount!.AsGatewayAccountIdentifier(),
                 toAccount: inferredAction.ToAccount!.AsGatewayAccountIdentifier(),

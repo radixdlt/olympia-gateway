@@ -138,7 +138,7 @@ public class ParsedTransactionMapper<T> : IParsedTransactionMapper
 
         foreach (var summarisation in summarisationsByTransaction.SelectMany(x => x))
         {
-            allValidatorAddressesToLookup.AddRange(summarisation.PendingStakeValidatorAddressesSeen);
+            allValidatorAddressesToLookup.AddRange(summarisation.PreparedUnstakeValidatorAddressesSeen);
         }
 
         var stakeSnapshotLookup = await CreateValidatorAddressStakeSnapshotLookup(allValidatorAddressesToLookup, token);

@@ -90,8 +90,9 @@ public record AccountingEntry(Entity Entity, Core.ResourceIdentifier ResourceIde
 public record OperationGroupSummarisation(
     Dictionary<Entity, Core.TokenData> TokenData,
     Dictionary<Entity, Core.TokenMetadata> TokenMetadata,
-    Dictionary<EntityResource, TokenAmount> TrackedTotalChanges,
-    HashSet<string> PendingStakeValidatorAddressesSeen
+    Dictionary<EntityResource, TokenAmount> TrackedNetBalanceChanges,
+    Dictionary<EntityResource, TokenAmount> TrackedTotalDeposits,
+    HashSet<string> PreparedUnstakeValidatorAddressesSeen
 );
 
 public class ActionInferrer : IActionInferrer
@@ -115,8 +116,9 @@ public class ActionInferrer : IActionInferrer
     {
         var tokenDataByEntity = new Dictionary<Entity, Core.TokenData>();
         var tokenMetadataByEntity = new Dictionary<Entity, Core.TokenMetadata>();
-        var trackedTotalChanges = new Dictionary<EntityResource, TokenAmount>();
-        var pendingStakeValidatorAddressesSeen = new HashSet<string>();
+        var trackedNetBalanceChanges = new Dictionary<EntityResource, TokenAmount>();
+        var trackedTotalDeposits = new Dictionary<EntityResource, TokenAmount>();
+        var preparedUnstakeValidatorAddressesSeen = new HashSet<string>();
 
         foreach (var operation in operationGroup.Operations)
         {
@@ -146,14 +148,21 @@ public class ActionInferrer : IActionInferrer
                     throw new InvalidTransactionException($"Unparsable token amount value: {operation.Amount}");
                 }
 
-                trackedTotalChanges.TrackBalanceDelta(new EntityResource(entity, operation.Amount.ResourceIdentifier), amount);
+                var entityResource = new EntityResource(entity, operation.Amount.ResourceIdentifier);
+
+                trackedNetBalanceChanges.TrackBalanceDelta(entityResource, amount);
+
+                if (amount.IsPositive())
+                {
+                    trackedTotalDeposits.TrackBalanceDelta(entityResource, amount);
+                }
 
                 if (
                     operation.Amount.ResourceIdentifier is Core.StakeUnitResourceIdentifier stakeUnitResourceIdentifier
                     && entity.EntityType == EntityType.Account_PreparedUnstake
                 )
                 {
-                    pendingStakeValidatorAddressesSeen.Add(stakeUnitResourceIdentifier.ValidatorAddress);
+                    preparedUnstakeValidatorAddressesSeen.Add(stakeUnitResourceIdentifier.ValidatorAddress);
                 }
             }
         }
@@ -161,8 +170,9 @@ public class ActionInferrer : IActionInferrer
         return new OperationGroupSummarisation(
             tokenDataByEntity,
             tokenMetadataByEntity,
-            trackedTotalChanges,
-            pendingStakeValidatorAddressesSeen
+            trackedNetBalanceChanges,
+            trackedTotalDeposits,
+            preparedUnstakeValidatorAddressesSeen
         );
     }
 
@@ -172,15 +182,23 @@ public class ActionInferrer : IActionInferrer
         Func<string, ValidatorStakeSnapshot> stakeSnapshotsByValidatorAddress
     )
     {
-        var (tokenData, tokenMetadata, trackedTotalChanges, _) = summarisation;
+        var tokenData = summarisation.TokenData;
+        var tokenMetadata = summarisation.TokenMetadata;
+        var trackedNetBalanceChanges = summarisation.TrackedNetBalanceChanges;
+        var trackedTotalDeposits = summarisation.TrackedTotalDeposits;
 
-        var withdrawals = trackedTotalChanges
+        var withdrawals = trackedNetBalanceChanges
             .Where(t => t.Value.IsNegative())
             .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
             .ToList();
 
-        var deposits = trackedTotalChanges
+        var deposits = trackedNetBalanceChanges
             .Where(t => t.Value.IsPositive())
+            .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
+            .ToList();
+
+        var selfTransfers = trackedTotalDeposits
+            .Where(t => trackedNetBalanceChanges.GetValueOrDefault(t.Key).IsZero())
             .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
             .ToList();
 
@@ -191,7 +209,40 @@ public class ActionInferrer : IActionInferrer
 
         if (withdrawals.Count == 0 && deposits.Count == 0)
         {
-            return null;
+            if (selfTransfers.Count > 1)
+            {
+                return new GatewayInferredAction(InferredActionType.Complex, null);
+            }
+
+            if (selfTransfers.Count == 0)
+            {
+                return null;
+            }
+
+            if (selfTransfers.Count == 1)
+            {
+                var selfTransfer = selfTransfers.First();
+                var entity = selfTransfer.Entity;
+                var resourceIdentifier = selfTransfer.ResourceIdentifier;
+
+                if (entity.EntityType != EntityType.Account || resourceIdentifier is not Core.TokenResourceIdentifier tokenResourceIdentifier)
+                {
+                    // This would be the system re-arranging UTXOs
+                    return new GatewayInferredAction(InferredActionType.Complex, null);
+                }
+
+                var amount = selfTransfer.Delta;
+                var account = AccountFrom(entity);
+
+                return new GatewayInferredAction(
+                    InferredActionType.SelfTransfer,
+                    new Gateway.TransferTokens(
+                        fromAccount: account,
+                        toAccount: account,
+                        amount: TokenAmountFrom(amount, tokenResourceIdentifier.Rri)
+                    )
+                );
+            }
         }
 
         if (withdrawals.Count > 1)

@@ -104,6 +104,7 @@ public class LedgerOperationGroup
 public enum InferredActionType
 {
     CreateTokenDefinition,
+    SelfTransfer,
     SimpleTransfer,
     StakeTokens,
     UnstakeTokens,
@@ -120,6 +121,7 @@ public class InferredActionTypeValueConverter : EnumTypeValueConverterBase<Infer
     {
         { InferredActionType.CreateTokenDefinition, "CREATE_TOKEN_DEFINITION" },
         { InferredActionType.SimpleTransfer, "SIMPLE_TRANSFER" },
+        { InferredActionType.SelfTransfer, "SELF_TRANSFER" },
         { InferredActionType.StakeTokens, "STAKE_TOKENS" },
         { InferredActionType.UnstakeTokens, "UNSTAKE_TOKENS" },
         { InferredActionType.MintTokens, "MINT_TOKENS" },
