@@ -38,13 +38,6 @@ For information on how to configure and monitor the Network Gateway components, 
 The toy deployment is built with Docker Compose, and allows you to easily spin up various combinations of the infrastructure to fit your development needs,
 including developing integrations, testing full or partial stacks, and as a demonstration for how services can be connected and configured.
 
-To run the set-up, follow the instructions under "**Preparing to run the toy set-up**" below - and then run one of the following scripts:
-
-* `run-full-stack-from-images.sh` - Runs the whole stack, without needing to run any code locally. This is ideal for playing about with the Gateway API, or developing against it, without needing to build any code.
-* `run-only-fullnode.sh` - Runs only a full node. This is useful for developing on the Network Gateway.
-* `run-full-stack-with-built-network-gateway.sh` - Runs the full stack with a built network gateway. Useful for developing/testing the Network Gateway code in an integrated setup.
-* `run-only-built-network-gateway.sh` - This runs only the built network gateway. This is useful for testing configuration of a Network Gateway against a non-local full node.
-
 ## Preparing to run the toy set-up
 
 * Open a new terminal.
@@ -68,6 +61,15 @@ There are a number of changes you may wish to make in `.env`, eg in order to:
 * Configure multiple full nodes or other set-ups.
   * By default, it only spins up one of each component.
   * You'll likely need to edit the `docker-compose.yml` file too.
+
+## Starting the services
+
+To run the set-up, execute one of the following scripts:
+
+* `run-full-stack-from-images.sh` - Runs the whole stack, without needing to run any code locally. This is ideal for playing about with the Gateway API, or developing against it, without needing to build any code.
+* `run-only-fullnode.sh` - Runs only a full node. This is useful for developing on the Network Gateway.
+* `run-full-stack-with-built-network-gateway.sh` - Runs the full stack with a built network gateway. Useful for developing/testing the Network Gateway code in an integrated setup.
+* `run-only-built-network-gateway.sh` - This runs only the built network gateway. This is useful for testing configuration of a Network Gateway against a non-local full node.
 
 ## Debugging
 
