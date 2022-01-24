@@ -91,7 +91,7 @@ public record OperationGroupSummarisation(
     Dictionary<Entity, Core.TokenData> TokenData,
     Dictionary<Entity, Core.TokenMetadata> TokenMetadata,
     Dictionary<EntityResource, TokenAmount> TrackedNetBalanceChanges,
-    Dictionary<EntityResource, TokenAmount> TrackedTotalDeposits,
+    AccountingEntry? FinalUpAmountForPossibleSelfTransferInference,
     HashSet<string> PreparedUnstakeValidatorAddressesSeen
 );
 
@@ -117,9 +117,10 @@ public class ActionInferrer : IActionInferrer
         var tokenDataByEntity = new Dictionary<Entity, Core.TokenData>();
         var tokenMetadataByEntity = new Dictionary<Entity, Core.TokenMetadata>();
         var trackedNetBalanceChanges = new Dictionary<EntityResource, TokenAmount>();
-        var trackedTotalDeposits = new Dictionary<EntityResource, TokenAmount>();
+        AccountingEntry? finalUpAmountForPossibleSelfTransferInference = null;
         var preparedUnstakeValidatorAddressesSeen = new HashSet<string>();
 
+        var lastOperation = operationGroup.Operations.LastOrDefault();
         foreach (var operation in operationGroup.Operations)
         {
             var entity = _entityDeterminer.DetermineEntity(operation.EntityIdentifier);
@@ -152,9 +153,13 @@ public class ActionInferrer : IActionInferrer
 
                 trackedNetBalanceChanges.TrackBalanceDelta(entityResource, amount);
 
-                if (amount.IsPositive())
+                if (ReferenceEquals(operation, lastOperation) && amount.IsPositive())
                 {
-                    trackedTotalDeposits.TrackBalanceDelta(entityResource, amount);
+                    finalUpAmountForPossibleSelfTransferInference = new AccountingEntry(
+                        entity,
+                        operation.Amount.ResourceIdentifier,
+                        amount
+                    );
                 }
 
                 if (
@@ -171,7 +176,7 @@ public class ActionInferrer : IActionInferrer
             tokenDataByEntity,
             tokenMetadataByEntity,
             trackedNetBalanceChanges,
-            trackedTotalDeposits,
+            finalUpAmountForPossibleSelfTransferInference,
             preparedUnstakeValidatorAddressesSeen
         );
     }
@@ -185,7 +190,6 @@ public class ActionInferrer : IActionInferrer
         var tokenData = summarisation.TokenData;
         var tokenMetadata = summarisation.TokenMetadata;
         var trackedNetBalanceChanges = summarisation.TrackedNetBalanceChanges;
-        var trackedTotalDeposits = summarisation.TrackedTotalDeposits;
 
         var withdrawals = trackedNetBalanceChanges
             .Where(t => t.Value.IsNegative())
@@ -197,8 +201,8 @@ public class ActionInferrer : IActionInferrer
             .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
             .ToList();
 
-        var selfTransfers = trackedTotalDeposits
-            .Where(t => trackedNetBalanceChanges.GetValueOrDefault(t.Key).IsZero())
+        var emptyNetEntityResourceChanges = trackedNetBalanceChanges
+            .Where(t => t.Value.IsZero())
             .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
             .ToList();
 
@@ -209,19 +213,29 @@ public class ActionInferrer : IActionInferrer
 
         if (withdrawals.Count == 0 && deposits.Count == 0)
         {
-            if (selfTransfers.Count > 1)
+            if (emptyNetEntityResourceChanges.Count > 1)
             {
                 return new GatewayInferredAction(InferredActionType.Complex, null);
             }
 
-            if (selfTransfers.Count == 0)
+            if (emptyNetEntityResourceChanges.Count == 0)
             {
                 return null;
             }
 
-            if (selfTransfers.Count == 1)
+            /*
+             * Self transfers are built the same as a normal transfer (A->B) is built; that is:
+             * - Down enough substates to pay for the transfer from account A
+             * - If necessary, give change to account A by upping 1 substate
+             * - Up a single substate for the transfer to account B
+             * For a self-transfer, A = B and the last substate should be equal to the
+             * transfer amount that the user specified.
+             */
+            var finalUpAmount = summarisation.FinalUpAmountForPossibleSelfTransferInference;
+
+            if (emptyNetEntityResourceChanges.Count == 1 && finalUpAmount != null)
             {
-                var selfTransfer = selfTransfers.First();
+                var selfTransfer = finalUpAmount;
                 var entity = selfTransfer.Entity;
                 var resourceIdentifier = selfTransfer.ResourceIdentifier;
 
