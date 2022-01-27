@@ -1,4 +1,4 @@
-name: Contract Tests
+name: Gateway API Contract Tests
 
 on:
   pull_request:
