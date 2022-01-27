@@ -17,7 +17,7 @@ jobs:
       - name: get ephemeral deployment url
         run: |
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          echo "EPHEMERAL_URL=https://$pull_number-gateway.radixdlt.com" >> $GITHUB_ENV
+          echo "EPHEMERAL_URL=https://pr-$pull_number-gateway.radixdlt.com" >> $GITHUB_ENV
           echo "EVENT_TYPE=contract_tests" >> $GITHUB_ENV
 
       - name: Trigger pull request deployment event ${{ github.ref }}
