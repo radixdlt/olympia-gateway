@@ -3,8 +3,6 @@ name: Contract Tests
 on:
   pull_request:
 
-permissions:
-  repository-projects: read
 jobs:
   contract_tests:
     name: Contract Tests
@@ -34,7 +32,7 @@ jobs:
           node-version: '16'
       
       - name: Install openapi-generator-cli
-        run: npm i @openapitools/openapi-generator-cli
+        run: npm install @openapitools/openapi-generator-cli
 
       - name: Install pip packages
         run: python install_all.py
