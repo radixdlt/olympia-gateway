@@ -1,0 +1,45 @@
+name: Contract Tests
+
+on:
+  pull_request:
+jobs:
+  contract_tests:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: main
+
+      - name: Checkout https://github.com/radixdlt/radixdlt-python-clients
+        uses: actions/checkout@v2
+        with:
+          repository: radixdlt/radixdlt-python-clients
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: radixdlt-python-clients
+
+      - name: Setup Python 3.10.0
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10.0'
+        
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      
+      - name: Install openapi-generator-cli
+        run: npm i @openapitools/openapi-generator-cli
+
+      - name: Install pip packages
+        run: python install_all.py
+            
+      - name: Generate the OpenAPI (thin) clients
+        run: python build_clients.py
+        working-directory: radixdlt-python-clients
+
+      - name: Run the API Gateway tests
+        run: |
+          pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+          python -m radixdlt_clients.tests.contract none https://$pull_number-gateway.radixdlt.com
