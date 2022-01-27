@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: radixdlt/radixdlt-python-clients
-          token: ${{ secrets.RADIXBOT_GITHUB_REPO_PACKAGES_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: radixdlt-python-clients
           ref: main
 
