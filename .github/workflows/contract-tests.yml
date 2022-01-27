@@ -13,7 +13,6 @@ jobs:
 
   dispatch-contract-tests-event:
     runs-on: ubuntu-latest
-    needs: publish-docker-pr
     steps:
       - name: get ephemeral deployment url
         run: |
