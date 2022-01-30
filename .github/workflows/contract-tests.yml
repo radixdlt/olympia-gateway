@@ -32,3 +32,13 @@ jobs:
                     "ephemeral_url": "${{env.EPHEMERAL_URL}}"
                 }
             }'
+
+  check-contracts-tests-job-status:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: LouisBrunner/checks-action@v1.1.1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        name: Check contract tests job status
+        conclusion: success
+        repo: radixdlt/radixdlt-python-clients
