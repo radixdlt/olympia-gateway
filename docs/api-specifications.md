@@ -2,11 +2,11 @@
 
 There are (at time of writing) three main Radix APIs:
 
-* [Gateway API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml) - The main public facing API, exposed by the Network Gateway
-* [Core API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/core/api.yaml) - An API exposed by radixdlt full nodes, intended to be exposed on private networks
-* [System API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/system/api.yaml) - An API exposed privately by radixdlt nodes to get information about the node health/status.
+* [Gateway API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/main/gateway-api-spec.yaml) - The main public facing API, exposed by the Network Gateway
+* [Core API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/main/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/core/api.yaml) - An API exposed by radixdlt full nodes, intended to be exposed on private networks
+* [System API](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt/main/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/system/api.yaml) - An API exposed privately by radixdlt nodes to get information about the node health/status.
 
-The links above link to the ReDocly docs, reading the schemas on the `develop` branches of each repo. As such, they may include features that are not yet on the latest release.
+The links above link to the ReDocly docs, reading the schemas on the `main` branches of each repo. As such, they may include features that are not yet on the latest release.
 
 ## Gateway API
 
@@ -16,7 +16,7 @@ The Open API specification should be kept up to date with the interface that the
 
 ## Core and System APIs
 
-The source of truth for the Core and System APIs lives on the full node - and the specs on the `develop` branch are here: [Core Open API Spec](https://github.com/radixdlt/radixdlt/blob/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/core/api.yaml) | [System Open API Spec](https://github.com/radixdlt/radixdlt/blob/develop/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/system/api.yaml).
+The source of truth for the Core and System APIs lives on the full node - and the specs on the `main` branch are here: [Core Open API Spec](https://github.com/radixdlt/radixdlt/blob/main/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/core/api.yaml) | [System Open API Spec](https://github.com/radixdlt/radixdlt/blob/main/radixdlt-core/radixdlt/src/main/java/com/radixdlt/api/system/api.yaml).
 
 ## Model and Client Generation
 

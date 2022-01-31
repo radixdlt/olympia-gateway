@@ -22,7 +22,7 @@ As the Core API is designed to not be exposed publicly, you will need to run you
 * For development purposes, you can either:
   * Connect to a pre-existing full node. A syncing full node and the data aggregator are both quite resource intensive, so it can help to run at least the full node off of your local machine. If at RDX Works, we have some Core APIs you can connect to off your local machine - talk to your team lead about getting access to these.
   * Run a full node locally, using a docker image at build version 1.1.0+. At time of writing, the latest is [release 1.1.0](https://github.com/radixdlt/radixdlt/releases/tag/1.1.0), available as docker tag [radixdlt/radixdlt-core:1.1.0](https://hub.docker.com/r/radixdlt/radixdlt-core/tags). The toy deployment in this folder uses this approach.
-  * Run a development build of a full node: [eg following this guide](https://github.com/radixdlt/radixdlt/blob/develop/docs/development/run-configurations/connecting-to-a-live-network-in-docker.md)
+  * Run a development build of a full node: [eg following this guide](https://github.com/radixdlt/radixdlt/blob/main/docs/development/run-configurations/connecting-to-a-live-network-in-docker.md)
 
 * For production purposes, you should run a radixdlt full node exposing the Core API. We do not yet have a full node build exposing the Core API which is
   released for production use.

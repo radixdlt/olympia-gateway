@@ -8,7 +8,7 @@ The system is in two main parts:
 
 ## Using the Gateway API
 
-For documentation on the Gateway API, see the [Gateway API docs on ReDocly](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml).
+For documentation on the Gateway API, see the [Gateway API docs on ReDocly](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/main/gateway-api-spec.yaml).
 
 ## Technical Docs
 
