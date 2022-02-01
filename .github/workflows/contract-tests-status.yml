@@ -1,0 +1,20 @@
+name: Gateway API Contract Tests
+
+on:
+  repository_dispatch:
+    types: [ contract_tests_status ]
+
+jobs:
+  build:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check status
+        run: |
+           if [[ ${{ github.event.client_payload.workflow_status }} != 'success' ]]; then
+              echo ${{ github.event.client_payload.workflow_status }}
+              exit 1
+           else
+              echo ${{ github.event.client_payload.workflow_status }}
+              exit 0
+           fi
