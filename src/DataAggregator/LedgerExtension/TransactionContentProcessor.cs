@@ -908,7 +908,7 @@ public class TransactionContentProcessor
                     amount: TokenAmount.FromSubUnitsString(action.Amount.Value),
                     resource: _dbActionsPlanner.GetLoadedResource(action.Amount.TokenIdentifier.Rri)
                 ),
-                { Type: InferredActionType.SimpleTransfer, Action: Gateway.TransferTokens action } => new InferredAction(
+                { Type: InferredActionType.SimpleTransfer or InferredActionType.SelfTransfer, Action: Gateway.TransferTokens action } => new InferredAction(
                     inferredGatewayAction.Type,
                     fromAccount: _dbActionsPlanner.GetLoadedAccount(action.FromAccount.Address),
                     toAccount: _dbActionsPlanner.GetLoadedAccount(action.ToAccount.Address),

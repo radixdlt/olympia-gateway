@@ -968,3 +968,43 @@ BEGIN
 END $EF$;
 COMMIT;
 
+START TRANSACTION;
+
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20220131143251_FixAccountResourceHistoryForeignKeys') THEN
+    ALTER TABLE account_resource_balance_history DROP CONSTRAINT "FK_account_resource_balance_history_ledger_transactions_from_s~";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20220131143251_FixAccountResourceHistoryForeignKeys') THEN
+    ALTER TABLE account_resource_balance_history DROP CONSTRAINT "FK_account_resource_balance_history_ledger_transactions_to_sta~";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20220131143251_FixAccountResourceHistoryForeignKeys') THEN
+    ALTER TABLE account_resource_balance_history ADD CONSTRAINT "FK_account_resource_balance_history_from_transaction" FOREIGN KEY (from_state_version) REFERENCES ledger_transactions (state_version) ON DELETE CASCADE;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20220131143251_FixAccountResourceHistoryForeignKeys') THEN
+    ALTER TABLE account_resource_balance_history ADD CONSTRAINT "FK_account_resource_balance_history_to_transaction" FOREIGN KEY (to_state_version) REFERENCES ledger_transactions (state_version) ON DELETE RESTRICT;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20220131143251_FixAccountResourceHistoryForeignKeys') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20220131143251_FixAccountResourceHistoryForeignKeys', '6.0.1');
+    END IF;
+END $EF$;
+COMMIT;
+

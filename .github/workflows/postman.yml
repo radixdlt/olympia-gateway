@@ -3,7 +3,7 @@ name: sync-postman-collection
 on:
   push:
     branches:
-      - develop
+      - main
 
 jobs:
   cancel_running_workflows:
@@ -15,7 +15,7 @@ jobs:
         with:
           access_token: ${{github.token}}
   sync_postman_collections:
-    name: Sync Postman collection w/ latest develop
+    name: Sync Postman collection w/ latest main
     environment: Postman
     runs-on: ubuntu-20.04
     steps:
@@ -32,7 +32,7 @@ jobs:
         run: echo '{"postmanWorkspaceName":"Team Workspace"}' > cliopts.json
       - name: Download the latest spec
         run: |
-          wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/develop/gateway-api-spec.yaml
+          wget https://raw.githubusercontent.com/radixdlt/radixdlt-network-gateway/main/gateway-api-spec.yaml
       - name: Replace hardcoded values with variables
         run: |
           sed -i 's/mainnet/"{{network}}"/g' gateway-api-spec.yaml &&\
@@ -55,7 +55,7 @@ jobs:
           curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e > tmp.collection.json
       - name: Add a timestamp to the name
         run: |
-          sed -i 's/"name":".*","description":"This API/"name":"Gateway API (develop) ${{steps.date.outputs.date}} UTC","description":"This API/' tmp.collection.json
+          sed -i 's/"name":".*","description":"This API/"name":"Gateway API (main) ${{steps.date.outputs.date}} UTC","description":"This API/' tmp.collection.json
       - name: Change the baseUrl variable name
         run: |
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json

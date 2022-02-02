@@ -22,7 +22,7 @@ As the Core API is designed to not be exposed publicly, you will need to run you
 * For development purposes, you can either:
   * Connect to a pre-existing full node. A syncing full node and the data aggregator are both quite resource intensive, so it can help to run at least the full node off of your local machine. If at RDX Works, we have some Core APIs you can connect to off your local machine - talk to your team lead about getting access to these.
   * Run a full node locally, using a docker image at build version 1.1.0+. At time of writing, the latest is [release 1.1.0](https://github.com/radixdlt/radixdlt/releases/tag/1.1.0), available as docker tag [radixdlt/radixdlt-core:1.1.0](https://hub.docker.com/r/radixdlt/radixdlt-core/tags). The toy deployment in this folder uses this approach.
-  * Run a development build of a full node: [eg following this guide](https://github.com/radixdlt/radixdlt/blob/develop/docs/development/run-configurations/connecting-to-a-live-network-in-docker.md)
+  * Run a development build of a full node: [eg following this guide](https://github.com/radixdlt/radixdlt/blob/main/docs/development/run-configurations/connecting-to-a-live-network-in-docker.md)
 
 * For production purposes, you should run a radixdlt full node exposing the Core API. We do not yet have a full node build exposing the Core API which is
   released for production use.
@@ -37,13 +37,6 @@ For information on how to configure and monitor the Network Gateway components, 
 
 The toy deployment is built with Docker Compose, and allows you to easily spin up various combinations of the infrastructure to fit your development needs,
 including developing integrations, testing full or partial stacks, and as a demonstration for how services can be connected and configured.
-
-To run the set-up, follow the instructions under "**Preparing to run the toy set-up**" below - and then run one of the following scripts:
-
-* `run-full-stack-from-images.sh` - Runs the whole stack, without needing to run any code locally. This is ideal for playing about with the Gateway API, or developing against it, without needing to build any code.
-* `run-only-fullnode.sh` - Runs only a full node. This is useful for developing on the Network Gateway.
-* `run-full-stack-with-built-network-gateway.sh` - Runs the full stack with a built network gateway. Useful for developing/testing the Network Gateway code in an integrated setup.
-* `run-only-built-network-gateway.sh` - This runs only the built network gateway. This is useful for testing configuration of a Network Gateway against a non-local full node.
 
 ## Preparing to run the toy set-up
 
@@ -68,6 +61,15 @@ There are a number of changes you may wish to make in `.env`, eg in order to:
 * Configure multiple full nodes or other set-ups.
   * By default, it only spins up one of each component.
   * You'll likely need to edit the `docker-compose.yml` file too.
+
+## Starting the services
+
+To run the set-up, execute one of the following scripts:
+
+* `run-full-stack-from-images.sh` - Runs the whole stack, without needing to run any code locally. This is ideal for playing about with the Gateway API, or developing against it, without needing to build any code.
+* `run-only-fullnode.sh` - Runs only a full node. This is useful for developing on the Network Gateway.
+* `run-full-stack-with-built-network-gateway.sh` - Runs the full stack with a built network gateway. Useful for developing/testing the Network Gateway code in an integrated setup.
+* `run-only-built-network-gateway.sh` - This runs only the built network gateway. This is useful for testing configuration of a Network Gateway against a non-local full node.
 
 ## Debugging
 

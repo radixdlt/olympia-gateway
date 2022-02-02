@@ -205,6 +205,10 @@ public class ValidatorQuerier : IValidatorQuerier
         var validatorDataSubstatesByValidatorId = (await (
                 from data in _dbContext.ValidatorDataSubstates.UpAtVersion(stateVersion)
                 where validatorIds.Contains(data.ValidatorId)
+                    && (
+                        data.EffectiveEpoch == null // Active substates
+                        || data.EffectiveEpoch > 0 // Non-default prepared substates
+                    )
                 orderby data.UpStateVersion descending
                 group data by new { data.ValidatorId, data.Type }
                 into g
@@ -228,22 +232,45 @@ public class ValidatorQuerier : IValidatorQuerier
             .Select(v => v.Value[ValidatorDataSubstateType.ValidatorData].Data.ValidatorData!.OwnerId)
             .ToList();
 
-        var validatorOwnerAddresses = await _dbContext.Accounts
-            .Where(a => validatorOwnerIds.Contains(a.Id))
+        var validatorPreparedOwnerIds = validatorDataSubstatesByValidatorId
+            .Where(v => v.Value.ContainsKey(ValidatorDataSubstateType.PreparedValidatorOwner))
+            .Select(v => v.Value[ValidatorDataSubstateType.PreparedValidatorOwner].Data.PreparedValidatorOwner!.PreparedOwnerId)
+            .ToList();
+
+        var validatorOwnerAndPreparedOwnerAddresses = await _dbContext.Accounts
+            .Where(a => validatorOwnerIds.Contains(a.Id) || validatorPreparedOwnerIds.Contains(a.Id))
             .ToDictionaryAsync(a => a.Id, a => a.Address);
 
         var outDictionary = new Dictionary<long, PropertiesAndOwner>();
 
         foreach (var (validatorId, validatorDataSubstates) in validatorDataSubstatesByValidatorId)
         {
-            var validatorOutputData = validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.ValidatorData)?.Data.ValidatorData!.ToOutputData(ownerId => validatorOwnerAddresses[ownerId])
+            var validatorOutputData = validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.ValidatorData)?.Data.ValidatorData!.ToOutputData(ownerId => validatorOwnerAndPreparedOwnerAddresses[ownerId])
                 ?? ValidatorData.GetDefaultOutputData(_networkConfigurationProvider.GetAddressHrps(), validatorsById[validatorId].PublicKey);
             var validatorMetadata = validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.ValidatorMetaData)?.Data.ValidatorMetaData
                                     ?? ValidatorMetadata.GetDefault();
             var validatorAllowDelegation = validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.ValidatorAllowDelegation)?.Data.ValidatorAllowDelegation
                                            ?? ValidatorAllowDelegation.GetDefault();
 
-            var validatorProperties = GetValidatorPropertiesFromStates(validatorOutputData, validatorMetadata, validatorAllowDelegation);
+            var preparedOwner = PreparedValidatorOwner.GetIfActive(
+                validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.PreparedValidatorOwner)?.Data,
+                ownerId => validatorOwnerAndPreparedOwnerAddresses[ownerId]
+            );
+            var preparedFee = PreparedValidatorFee.GetIfActive(
+                validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.PreparedValidatorFee)?.Data
+            );
+            var preparedRegistered = PreparedValidatorRegistered.GetIfActive(
+                validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.PreparedValidatorRegistered)?.Data
+            );
+
+            var validatorProperties = GetValidatorPropertiesFromStates(
+                validatorOutputData,
+                validatorMetadata,
+                validatorAllowDelegation,
+                preparedOwner,
+                preparedFee,
+                preparedRegistered
+            );
             var ownerId = validatorDataSubstates.GetValueOrDefault(ValidatorDataSubstateType.ValidatorData)?.Data.ValidatorData!.OwnerId;
 
             outDictionary.Add(validatorId, new PropertiesAndOwner(validatorProperties, ownerId));
@@ -264,15 +291,19 @@ public class ValidatorQuerier : IValidatorQuerier
     private ValidatorProperties GetValidatorPropertiesFromStates(
         OutputValidatorData validatorOutputData,
         ValidatorMetadata validatorMetadata,
-        ValidatorAllowDelegation validatorAllowDelegation
+        ValidatorAllowDelegation validatorAllowDelegation,
+        OutputPreparedValidatorOwner? preparedOwner = null,
+        OutputPreparedValidatorFee? preparedFee = null,
+        OutputPreparedValidatorRegistered? preparedRegistered = null
     )
     {
+        // TODO NG-100 - revert the overrides once NG-97 is implemented and used by wallets
         return new ValidatorProperties(
             url: validatorMetadata.Url,
-            validatorFeePercentage: validatorOutputData.FeePercentage,
+            validatorFeePercentage: preparedFee?.FeePercentage ?? validatorOutputData.FeePercentage,
             name: validatorMetadata.Name,
-            registered: validatorOutputData.IsRegistered,
-            ownerAccountIdentifier: validatorOutputData.OwnerAddress.AsGatewayAccountIdentifier(),
+            registered: preparedRegistered?.IsRegistered ?? validatorOutputData.IsRegistered,
+            ownerAccountIdentifier: (preparedOwner?.OwnerAddress ?? validatorOutputData.OwnerAddress).AsGatewayAccountIdentifier(),
             externalStakeAccepted: validatorAllowDelegation.AllowDelegation
         );
     }

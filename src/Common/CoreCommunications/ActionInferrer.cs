@@ -90,8 +90,9 @@ public record AccountingEntry(Entity Entity, Core.ResourceIdentifier ResourceIde
 public record OperationGroupSummarisation(
     Dictionary<Entity, Core.TokenData> TokenData,
     Dictionary<Entity, Core.TokenMetadata> TokenMetadata,
-    Dictionary<EntityResource, TokenAmount> TrackedTotalChanges,
-    HashSet<string> PendingStakeValidatorAddressesSeen
+    Dictionary<EntityResource, TokenAmount> TrackedNetBalanceChanges,
+    AccountingEntry? FinalUpAmountForPossibleSelfTransferInference,
+    HashSet<string> PreparedUnstakeValidatorAddressesSeen
 );
 
 public class ActionInferrer : IActionInferrer
@@ -115,9 +116,11 @@ public class ActionInferrer : IActionInferrer
     {
         var tokenDataByEntity = new Dictionary<Entity, Core.TokenData>();
         var tokenMetadataByEntity = new Dictionary<Entity, Core.TokenMetadata>();
-        var trackedTotalChanges = new Dictionary<EntityResource, TokenAmount>();
-        var pendingStakeValidatorAddressesSeen = new HashSet<string>();
+        var trackedNetBalanceChanges = new Dictionary<EntityResource, TokenAmount>();
+        AccountingEntry? finalUpAmountForPossibleSelfTransferInference = null;
+        var preparedUnstakeValidatorAddressesSeen = new HashSet<string>();
 
+        var lastOperation = operationGroup.Operations.LastOrDefault();
         foreach (var operation in operationGroup.Operations)
         {
             var entity = _entityDeterminer.DetermineEntity(operation.EntityIdentifier);
@@ -146,14 +149,25 @@ public class ActionInferrer : IActionInferrer
                     throw new InvalidTransactionException($"Unparsable token amount value: {operation.Amount}");
                 }
 
-                trackedTotalChanges.TrackBalanceDelta(new EntityResource(entity, operation.Amount.ResourceIdentifier), amount);
+                var entityResource = new EntityResource(entity, operation.Amount.ResourceIdentifier);
+
+                trackedNetBalanceChanges.TrackBalanceDelta(entityResource, amount);
+
+                if (ReferenceEquals(operation, lastOperation) && amount.IsPositive())
+                {
+                    finalUpAmountForPossibleSelfTransferInference = new AccountingEntry(
+                        entity,
+                        operation.Amount.ResourceIdentifier,
+                        amount
+                    );
+                }
 
                 if (
                     operation.Amount.ResourceIdentifier is Core.StakeUnitResourceIdentifier stakeUnitResourceIdentifier
                     && entity.EntityType == EntityType.Account_PreparedUnstake
                 )
                 {
-                    pendingStakeValidatorAddressesSeen.Add(stakeUnitResourceIdentifier.ValidatorAddress);
+                    preparedUnstakeValidatorAddressesSeen.Add(stakeUnitResourceIdentifier.ValidatorAddress);
                 }
             }
         }
@@ -161,8 +175,9 @@ public class ActionInferrer : IActionInferrer
         return new OperationGroupSummarisation(
             tokenDataByEntity,
             tokenMetadataByEntity,
-            trackedTotalChanges,
-            pendingStakeValidatorAddressesSeen
+            trackedNetBalanceChanges,
+            finalUpAmountForPossibleSelfTransferInference,
+            preparedUnstakeValidatorAddressesSeen
         );
     }
 
@@ -172,15 +187,22 @@ public class ActionInferrer : IActionInferrer
         Func<string, ValidatorStakeSnapshot> stakeSnapshotsByValidatorAddress
     )
     {
-        var (tokenData, tokenMetadata, trackedTotalChanges, _) = summarisation;
+        var tokenData = summarisation.TokenData;
+        var tokenMetadata = summarisation.TokenMetadata;
+        var trackedNetBalanceChanges = summarisation.TrackedNetBalanceChanges;
 
-        var withdrawals = trackedTotalChanges
+        var withdrawals = trackedNetBalanceChanges
             .Where(t => t.Value.IsNegative())
             .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
             .ToList();
 
-        var deposits = trackedTotalChanges
+        var deposits = trackedNetBalanceChanges
             .Where(t => t.Value.IsPositive())
+            .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
+            .ToList();
+
+        var emptyNetEntityResourceChanges = trackedNetBalanceChanges
+            .Where(t => t.Value.IsZero())
             .Select(t => new AccountingEntry(t.Key.Entity, t.Key.ResourceIdentifier, t.Value))
             .ToList();
 
@@ -191,7 +213,50 @@ public class ActionInferrer : IActionInferrer
 
         if (withdrawals.Count == 0 && deposits.Count == 0)
         {
-            return null;
+            if (emptyNetEntityResourceChanges.Count > 1)
+            {
+                return new GatewayInferredAction(InferredActionType.Complex, null);
+            }
+
+            if (emptyNetEntityResourceChanges.Count == 0)
+            {
+                return null;
+            }
+
+            /*
+             * Self transfers are built the same as a normal transfer (A->B) is built; that is:
+             * - Down enough substates to pay for the transfer from account A
+             * - If necessary, give change to account A by upping 1 substate
+             * - Up a single substate for the transfer to account B
+             * For a self-transfer, A = B and the last substate should be equal to the
+             * transfer amount that the user specified.
+             */
+            var finalUpAmount = summarisation.FinalUpAmountForPossibleSelfTransferInference;
+
+            if (emptyNetEntityResourceChanges.Count == 1 && finalUpAmount != null)
+            {
+                var selfTransfer = finalUpAmount;
+                var entity = selfTransfer.Entity;
+                var resourceIdentifier = selfTransfer.ResourceIdentifier;
+
+                if (entity.EntityType != EntityType.Account || resourceIdentifier is not Core.TokenResourceIdentifier tokenResourceIdentifier)
+                {
+                    // This would be the system re-arranging UTXOs
+                    return new GatewayInferredAction(InferredActionType.Complex, null);
+                }
+
+                var amount = selfTransfer.Delta;
+                var account = AccountFrom(entity);
+
+                return new GatewayInferredAction(
+                    InferredActionType.SelfTransfer,
+                    new Gateway.TransferTokens(
+                        fromAccount: account,
+                        toAccount: account,
+                        amount: TokenAmountFrom(amount, tokenResourceIdentifier.Rri)
+                    )
+                );
+            }
         }
 
         if (withdrawals.Count > 1)

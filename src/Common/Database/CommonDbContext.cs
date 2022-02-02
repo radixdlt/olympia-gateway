@@ -288,7 +288,7 @@ public class CommonDbContext : DbContext
 
     private static void HookUpAccountResourceBalanceHistory(ModelBuilder modelBuilder)
     {
-        HookupHistory<ResourceSupplyHistory>(modelBuilder);
+        HookupHistory<AccountResourceBalanceHistory>(modelBuilder);
 
         modelBuilder.Entity<AccountResourceBalanceHistory>()
             .HasKey(h => new { h.AccountId, h.ResourceId, h.FromStateVersion });
@@ -299,8 +299,6 @@ public class CommonDbContext : DbContext
             .IsUnique()
             .HasDatabaseName($"IX_{nameof(AccountResourceBalanceHistory).ToSnakeCase()}_current_balance");
 
-        // All four of these indices (these three plus the implicit index from the PK) could be useful for different queries
-        // TODO:NG-39 Remove any which aren't important for the APIs we're exposing
         modelBuilder.Entity<AccountResourceBalanceHistory>()
             .HasIndex(h => new { h.AccountId, h.FromStateVersion });
         modelBuilder.Entity<AccountResourceBalanceHistory>()
@@ -350,8 +348,6 @@ public class CommonDbContext : DbContext
             .IsUnique()
             .HasDatabaseName($"IX_{nameof(AccountValidatorStakeHistory).ToSnakeCase()}_current_stake");
 
-        // All four of these indices (these three plus the implicit index from the PK) could be useful for different queries
-        // TODO:NG-39 Remove any which aren't important for the APIs we're exposing
         modelBuilder.Entity<AccountValidatorStakeHistory>()
             .HasIndex(h => new { h.AccountId, h.FromStateVersion });
         modelBuilder.Entity<AccountValidatorStakeHistory>()

@@ -65,6 +65,7 @@
 using Common.Database;
 using Common.Database.Models.Ledger;
 using Common.Database.Models.Ledger.History;
+using Common.Database.Models.Ledger.Normalization;
 using Common.Database.Models.Ledger.Substates;
 using Common.Numerics;
 using GatewayAPI.ApiSurface;
@@ -94,8 +95,15 @@ public class TokenQuerier : ITokenQuerier
 
     public async Task<Gateway.Token> GetTokenInfoAtState(string tokenRri, Gateway.LedgerState ledgerState)
     {
+        var resource = await _dbContext.Resource(tokenRri, ledgerState._Version).SingleOrDefaultAsync();
+
+        if (resource == null)
+        {
+            throw new TokenNotFoundException(tokenRri);
+        }
+
         var tokenIdentifier = tokenRri.AsGatewayTokenIdentifier();
-        var tokenSupply = await GetTokenSupplyAtState(tokenRri, ledgerState);
+        var tokenSupply = await GetTokenSupplyAtState(resource, ledgerState);
         return new Gateway.Token(
             tokenIdentifier,
             tokenSupply.ResourceSupply.TotalSupply.AsGatewayTokenAmount(tokenIdentifier),
@@ -103,7 +111,7 @@ public class TokenQuerier : ITokenQuerier
                 tokenSupply.ResourceSupply.TotalMinted.AsGatewayTokenAmount(tokenIdentifier),
                 tokenSupply.ResourceSupply.TotalBurnt.AsGatewayTokenAmount(tokenIdentifier)
             ),
-            await GetTokenPropertiesAtState(tokenRri, ledgerState)
+            await GetTokenPropertiesAtState(resource, ledgerState)
         );
     }
 
@@ -164,32 +172,28 @@ public class TokenQuerier : ITokenQuerier
         return substate.Amount;
     }
 
-    private async Task<ResourceSupplyHistory> GetTokenSupplyAtState(string tokenRri, Gateway.LedgerState ledgerState)
+    private async Task<ResourceSupplyHistory> GetTokenSupplyAtState(Resource resource, Gateway.LedgerState ledgerState)
     {
-        var resourceSupply = await _dbContext.ResourceSupplyHistoryAtVersionForRri(ledgerState._Version, tokenRri)
+        var resourceSupply = await _dbContext.ResourceSupplyHistoryAtVersionForResourceId(ledgerState._Version, resource.Id)
             .SingleOrDefaultAsync();
 
         if (resourceSupply == null)
         {
-            throw new TokenNotFoundException(tokenRri);
+            throw new TokenNotFoundException(resource.ResourceIdentifier);
         }
 
         return resourceSupply;
     }
 
-    private async Task<Gateway.TokenProperties> GetTokenPropertiesAtState(string tokenRri, Gateway.LedgerState ledgerState)
+    private async Task<Gateway.TokenProperties> GetTokenPropertiesAtState(Resource resource, Gateway.LedgerState ledgerState)
     {
         var stateVersion = ledgerState._Version;
 
-        var tokenDataSubstates = await (
-            from data in _dbContext.ResourceDataSubstates.UpAtVersion(stateVersion)
-            join resource in _dbContext.Resource(tokenRri, stateVersion)
-                on data.ResourceId equals resource.Id
-            orderby data.UpStateVersion descending
-            select data
-        )
-        .Include(s => s.TokenData!.Owner)
-        .ToListAsync();
+        var tokenDataSubstates = await _dbContext.ResourceDataSubstates.UpAtVersion(stateVersion)
+            .Where(ds => ds.ResourceId == resource.Id)
+            .OrderByDescending(ds => ds.UpStateVersion)
+            .Include(s => s.TokenData!.Owner)
+            .ToListAsync();
 
         var tokenData = tokenDataSubstates.Find(s => s.Type == ResourceDataSubstateType.TokenData)?.TokenData;
         var tokenMetadata = tokenDataSubstates.Find(s => s.Type == ResourceDataSubstateType.TokenMetadata)?.TokenMetadata;
@@ -197,10 +201,10 @@ public class TokenQuerier : ITokenQuerier
         if (tokenDataSubstates.Count > 2)
         {
             throw new InvalidStateException(
-                $"More than one TokenData or TokenMetaData matched for rri '{tokenRri}' at stateVersion {stateVersion}");
+                $"More than one TokenData or TokenMetaData matched for rri '{resource.ResourceIdentifier}' at stateVersion {stateVersion}");
         }
 
-        return CreateTokenProperties(tokenRri, tokenData, tokenMetadata, stateVersion);
+        return CreateTokenProperties(resource.ResourceIdentifier, tokenData, tokenMetadata, stateVersion);
     }
 
     private Gateway.TokenProperties CreateTokenProperties(

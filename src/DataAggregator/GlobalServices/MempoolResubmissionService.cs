@@ -432,6 +432,6 @@ public class MempoolResubmissionService : IMempoolResubmissionService
     {
         return _aggregatorConfiguration.GetNodes()
             .Where(n => n.Enabled && !n.DisabledForConstruction)
-            .GetRandomBy(_ => 1);
+            .GetRandomBy(n => (double)n.RequestWeighting);
     }
 }

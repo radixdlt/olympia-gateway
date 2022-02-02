@@ -68,7 +68,7 @@ using Common.Database.ValueConverters;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
-using Api = RadixCoreApi.Generated.Model;
+using Core = RadixCoreApi.Generated.Model;
 using Db = Common.Database.Models.Ledger.Substates;
 
 namespace Common.Database.Models.Ledger.Substates;
@@ -170,12 +170,12 @@ public class ValidatorDataSubstate : DataSubstateBase
 }
 
 public record ValidatorDataObjects(
-    Api.ValidatorData? ValidatorData,
-    Api.ValidatorMetadata? ValidatorMetadata,
-    Api.ValidatorAllowDelegation? ValidatorAllowDelegation,
-    Api.PreparedValidatorRegistered? PreparedValidatorRegistered,
-    Api.PreparedValidatorFee? PreparedValidatorFee,
-    Api.PreparedValidatorOwner? PreparedValidatorOwner
+    Core.ValidatorData? ValidatorData,
+    Core.ValidatorMetadata? ValidatorMetadata,
+    Core.ValidatorAllowDelegation? ValidatorAllowDelegation,
+    Core.PreparedValidatorRegistered? PreparedValidatorRegistered,
+    Core.PreparedValidatorFee? PreparedValidatorFee,
+    Core.PreparedValidatorOwner? PreparedValidatorOwner
 )
 {
     public ValidatorDataObjects()
@@ -238,7 +238,7 @@ public record ValidatorData
         );
     }
 
-    public static ValidatorData? From(Api.ValidatorData? apiModel, Account? validatorOwner)
+    public static ValidatorData? From(Core.ValidatorData? apiModel, Account? validatorOwner)
     {
         return apiModel == null ? null
             : new ValidatorData
@@ -269,7 +269,7 @@ public record ValidatorMetadata
     [Column(name: "url")]
     public string Url { get; set; }
 
-    public static ValidatorMetadata? From(Api.ValidatorMetadata? apiModel)
+    public static ValidatorMetadata? From(Core.ValidatorMetadata? apiModel)
     {
         return apiModel == null ? null
             : new ValidatorMetadata { Name = apiModel.Name, Url = apiModel.Url };
@@ -287,7 +287,7 @@ public record ValidatorAllowDelegation
     [Column(name: "allow_delegation")]
     public bool AllowDelegation { get; set; }
 
-    public static ValidatorAllowDelegation? From(Api.ValidatorAllowDelegation? apiModel)
+    public static ValidatorAllowDelegation? From(Core.ValidatorAllowDelegation? apiModel)
     {
         return apiModel == null ? null
             : new ValidatorAllowDelegation { AllowDelegation = apiModel.AllowDelegation };
@@ -299,20 +299,36 @@ public record ValidatorAllowDelegation
     }
 }
 
+public record OutputPreparedValidatorRegistered(long EffectiveEpoch, bool IsRegistered);
+
 [Owned]
-// NB - This has a (virtual) default of PreparedIsRegistered=True, EffectiveEpoch=0
-//      After the flag has been set and removed, it gets explicitly set back to this default.
+// NB - This has a (virtual) default of PreparedIsRegistered=False, EffectiveEpoch=0
+//      This virtual default can get downed without being created; and after the preparation completes,
+//      an UP substate with this default is explicitly re-created.
 public record PreparedValidatorRegistered
 {
     [Column(name: "prepared_is_registered")]
     public bool PreparedIsRegistered { get; set; }
 
-    public static PreparedValidatorRegistered? From(Api.PreparedValidatorRegistered? apiModel)
+    public static PreparedValidatorRegistered? From(Core.PreparedValidatorRegistered? apiModel)
     {
         return apiModel == null ? null
             : new PreparedValidatorRegistered { PreparedIsRegistered = apiModel.Registered };
     }
+
+    public static OutputPreparedValidatorRegistered? GetIfActive(ValidatorDataSubstate? dataSubstate)
+    {
+        return dataSubstate?.PreparedValidatorRegistered == null
+               || dataSubstate.EffectiveEpoch is null or 0
+            ? null
+            : new OutputPreparedValidatorRegistered(
+                dataSubstate.EffectiveEpoch.Value,
+                dataSubstate.PreparedValidatorRegistered.PreparedIsRegistered
+            );
+    }
 }
+
+public record OutputPreparedValidatorFee(long EffectiveEpoch, decimal FeePercentage);
 
 [Owned]
 public record PreparedValidatorFee
@@ -320,12 +336,25 @@ public record PreparedValidatorFee
     [Column(name: "prepared_fee_percentage")]
     public decimal PreparedFeePercentage { get; set; }
 
-    public static PreparedValidatorFee? From(Api.PreparedValidatorFee? apiModel)
+    public static PreparedValidatorFee? From(Core.PreparedValidatorFee? apiModel)
     {
         return apiModel == null ? null
             : new PreparedValidatorFee { PreparedFeePercentage = ((decimal)apiModel.Fee) / 100 };
     }
+
+    public static OutputPreparedValidatorFee? GetIfActive(ValidatorDataSubstate? dataSubstate)
+    {
+        return dataSubstate?.PreparedValidatorFee == null
+               || dataSubstate.EffectiveEpoch is null or 0
+            ? null
+            : new OutputPreparedValidatorFee(
+                dataSubstate.EffectiveEpoch.Value,
+                dataSubstate.PreparedValidatorFee.PreparedFeePercentage
+            );
+    }
 }
+
+public record OutputPreparedValidatorOwner(long EffectiveEpoch, string OwnerAddress);
 
 [Owned]
 public record PreparedValidatorOwner
@@ -336,7 +365,7 @@ public record PreparedValidatorOwner
     [ForeignKey(nameof(PreparedOwnerId))]
     public Account PreparedOwner { get; set; }
 
-    public static PreparedValidatorOwner? From(Api.PreparedValidatorOwner? apiModel, Account? validatorOwner)
+    public static PreparedValidatorOwner? From(Core.PreparedValidatorOwner? apiModel, Account? validatorOwner)
     {
         return apiModel == null ? null
             : new PreparedValidatorOwner
@@ -344,5 +373,16 @@ public record PreparedValidatorOwner
                 PreparedOwnerId = validatorOwner!.Id,
                 PreparedOwner = validatorOwner,
             };
+    }
+
+    public static OutputPreparedValidatorOwner? GetIfActive(ValidatorDataSubstate? dataSubstate, Func<long, string> accountAddressMap)
+    {
+        return dataSubstate?.PreparedValidatorOwner == null
+               || dataSubstate.EffectiveEpoch is null or 0
+            ? null
+            : new OutputPreparedValidatorOwner(
+                dataSubstate.EffectiveEpoch.Value,
+                accountAddressMap(dataSubstate.PreparedValidatorOwner.PreparedOwnerId)
+            );
     }
 }
