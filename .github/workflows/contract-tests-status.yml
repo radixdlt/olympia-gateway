@@ -1,4 +1,4 @@
-name: Gateway API Contract Tests
+name: Gateway API Contract Tests Status
 
 on:
   repository_dispatch:
