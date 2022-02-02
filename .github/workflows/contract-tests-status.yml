@@ -12,6 +12,7 @@ jobs:
       - name: Check status
         run: |
            if [[ ${{ github.event.client_payload.workflow_status }} != 'success' ]]; then
+              echo "The contract tests are failing..."
               exit 1
            else
               exit 0
