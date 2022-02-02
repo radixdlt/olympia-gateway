@@ -1,6 +1,9 @@
 name: Gateway API Contract Tests
 
 on:
+  push:
+    branches:
+      - develop
   pull_request:
 
 jobs:
@@ -16,11 +19,10 @@ jobs:
     steps:
       - name: get ephemeral deployment url
         run: |
-          pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          echo "EPHEMERAL_URL=https://pr-$pull_number-gateway.radixdlt.com" >> $GITHUB_ENV
+          echo "GATEWAY_URL=${{ secrets.GATEWAY_URL }}" >> $GITHUB_ENV
           echo "EVENT_TYPE=contract_tests" >> $GITHUB_ENV
 
-      - name: Trigger pull request deployment event ${{ github.ref }}
+      - name: Trigger contract tests job
         run: |
           curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/radixdlt-python-clients/dispatches' \
             --header 'Accept: application/vnd.github.v3+json' \
@@ -29,16 +31,6 @@ jobs:
             --data-raw '{
                 "event_type": "${{env.EVENT_TYPE}}",
                 "client_payload": {
-                    "ephemeral_url": "${{env.EPHEMERAL_URL}}"
+                    "gateway_url": "${{env.GATEWAY_URL}}"
                 }
             }'
-
-  check-contracts-tests-job-status:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: LouisBrunner/checks-action@v1.1.1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        name: Check contract tests job status
-        conclusion: success
-        repo: radixdlt/radixdlt-python-clients
