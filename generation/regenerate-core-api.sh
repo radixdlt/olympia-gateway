@@ -118,19 +118,23 @@ mkdir "$dummyApiDirectory"
 # - We use optionalEmitDefaultValues=true to ensure optional parameters set to 0 are included;
 #   to work around bugs in the generator (see https://github.com/OpenAPITools/openapi-generator/pull/11607).
 #   This means 0s and nulls are emitted. The latter isn't technically spec compliant, but the Java Core API doesn't mind.
+#   For situations where we need to _not_ emit 0s sometimes, the fields are explicitly set to null in
+#   grep fixes in later lines of this script.
 #   When we fix the generator to emit nullable reference types, it will be better.
 # - For fields where we have to send requests with missing fields (eg EpochUnlock, Epoch in Core API), we manually grep
 #   the fields to replace them with nullable fields.
 # - We perform other fixes as per NG-64
-# - For NG-64, we can start by changing the templates locally (https://openapi-generator.tech/docs/templating) before considering merges upstream
+# - nullableReferenceTypes is set to false, because it adds the assembly attribute without actually making non-required types nullable
 
-openapi-generator \
+# Use the local forked generator - built from this PR: https://github.com/OpenAPITools/openapi-generator/pull/11607
+# TODO NG-64: This can be replaced by either templates (https://openapi-generator.tech/docs/templating) and/or upstream changes/fixes
+java -jar ./openapi-generator-cli.jar \
     generate \
     -i "$specLocation" \
     -g csharp-netcore \
     -o "$dummyApiDirectory" \
     --library httpclient \
-    --additional-properties=packageName=$packageName,targetFramework=net5.0,packageVersion=$packageVersion
+    --additional-properties=packageName=$packageName,targetFramework=net6.0,packageVersion=$packageVersion,targetFramework=net6.0,packageVersion=$packageVersion,optionalEmitDefaultValues=true,nullableReferenceTypes=false
 
 # Fix various issues in the generated code
 for f in `find $dummyApiDirectory -name '*.cs'`; do

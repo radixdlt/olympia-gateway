@@ -119,14 +119,11 @@ mkdir "$dummyApiDirectory"
 # - Unlike with the Core API (where we need to preserve 0s on our request objects)
 #   we need to not include nulls on our responses. So I've removed the additional option optionalEmitDefaultValues=true
 # - Instead, I've forked the generator to set EmitDefaultValues to true for required properties (https://github.com/OpenAPITools/openapi-generator/pull/11607).
-# - For NG-64, we can start by changing the templates locally (https://openapi-generator.tech/docs/templating) before considering merges upstream
 # - nullableReferenceTypes is set to false, because it adds the assembly attribute without actually making non-required types nullable
 
-# Use the forked generator. If this isn't available, either:
-# - Ask David to re-generate for you
-# - Rebuild the fork (checkout https://github.com/OpenAPITools/openapi-generator/pull/11607, install java 1.8; run ./mvnw clean package)
-# - Manually recreate the fork in template files: https://openapi-generator.tech/docs/templating
-java -jar /Users/davidedey/Work/openapi-generator/modules/openapi-generator-cli/target/openapi-generator-cli.jar \
+# Use the local forked generator - built from this PR: https://github.com/OpenAPITools/openapi-generator/pull/11607
+# TODO NG-64: This can be replaced by either templates (https://openapi-generator.tech/docs/templating) and/or upstream changes / fixes
+java -jar ./openapi-generator-cli.jar \
     generate \
     -i "$specLocation" \
     -g csharp-netcore \
