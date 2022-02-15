@@ -114,12 +114,23 @@ dummyApiDirectory="$TMPDIR/radix-api-generation/"
 rm -rf "$dummyApiDirectory"
 mkdir "$dummyApiDirectory"
 
-openapi-generator generate \
+## A note on settings used, and fixes:
+# - We use optionalEmitDefaultValues=true to ensure optional parameters set to 0 are included;
+#   to work around bugs in the generator (see https://github.com/OpenAPITools/openapi-generator/pull/11607).
+#   This means 0s and nulls are emitted. The latter isn't technically spec compliant, but the Java Core API doesn't mind.
+#   When we fix the generator to emit nullable reference types, it will be better.
+# - For fields where we have to send requests with missing fields (eg EpochUnlock, Epoch in Core API), we manually grep
+#   the fields to replace them with nullable fields.
+# - We perform other fixes as per NG-64
+# - For NG-64, we can start by changing the templates locally (https://openapi-generator.tech/docs/templating) before considering merges upstream
+
+openapi-generator \
+    generate \
     -i "$specLocation" \
     -g csharp-netcore \
     -o "$dummyApiDirectory" \
     --library httpclient \
-    --additional-properties=packageName=$packageName,targetFramework=net5.0,packageVersion=$packageVersion,optionalEmitDefaultValues=true
+    --additional-properties=packageName=$packageName,targetFramework=net5.0,packageVersion=$packageVersion
 
 # Fix various issues in the generated code
 for f in `find $dummyApiDirectory -name '*.cs'`; do
@@ -133,7 +144,14 @@ for f in `find $dummyApiDirectory -name '*.cs'`; do
     mv $f.out $f
     awk '{sub(/long epochUnlock = default\(long\)/,"long? epochUnlock = default(long?)"); print}' $f > $f.out
     mv $f.out $f
-    echo "$f - Performed long EpochUnlock fix to source code"
+    echo "$f - Performed long EpochUnlock fix to source code (to make it nullable for requests)"
+  fi
+  if (grep -q "long Epoch" $f) && [[ $f != *"/obj/"* ]] && [[ $f == *"Prepared"* ]]; then
+    awk '{sub(/long Epoch/,"long? Epoch"); print}' $f > $f.out
+    mv $f.out $f
+    awk '{sub(/long epoch = default\(long\)/,"long? epoch = default(long?)"); print}' $f > $f.out
+    mv $f.out $f
+    echo "$f - Performed long Epoch fix to source code (to make it nullable for requests)"
   fi
   if (grep -q "CreateLinkedTokenSource" $f) && [[ $f != *"/obj/"* ]]; then
     awk '{sub(/finalToken = CancellationTokenSource\.CreateLinkedTokenSource\(finalToken, tokenSource.Token\)\.Token;/,""); print}' $f > $f.out
@@ -141,9 +159,13 @@ for f in `find $dummyApiDirectory -name '*.cs'`; do
     echo "$f - Performed CreateLinkedTokenSource memory leak fix to source code"
   fi
 done
+
 # Uncomment these lines to see the code, to debug:
+# echo
+# echo "> Manual review step"
+# echo "Close VS Code when you're done, then press any key to continue in this prompt, and the generation process will continue."
 # code $dummyApiDirectory
-# exit 1
+# read -n 1
 
 cd "$dummyApiDirectory"
 dotnet pack

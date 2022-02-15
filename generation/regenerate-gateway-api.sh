@@ -115,15 +115,24 @@ dummyApiDirectory="$TMPDIR/radix-api-generation/"
 rm -rf "$dummyApiDirectory"
 mkdir "$dummyApiDirectory"
 
-# Note - unlike with the Core API (where we need to preserve 0s on our request objects)
-#        we need to not include nulls on our responses. So I've removed the additional option optionalEmitDefaultValues=true
-#        And for now (until NG-64), I'll manually remove the attribute from value types in the client.
-openapi-generator generate \
+## A note on settings used, and fixes:
+# - Unlike with the Core API (where we need to preserve 0s on our request objects)
+#   we need to not include nulls on our responses. So I've removed the additional option optionalEmitDefaultValues=true
+# - Instead, I've forked the generator to set EmitDefaultValues to true for required properties (https://github.com/OpenAPITools/openapi-generator/pull/11607).
+# - For NG-64, we can start by changing the templates locally (https://openapi-generator.tech/docs/templating) before considering merges upstream
+# - nullableReferenceTypes is set to false, because it adds the assembly attribute without actually making non-required types nullable
+
+# Use the forked generator. If this isn't available, either:
+# - Ask David to re-generate for you
+# - Rebuild the fork (checkout https://github.com/OpenAPITools/openapi-generator/pull/11607, install java 1.8; run ./mvnw clean package)
+# - Manually recreate the fork in template files: https://openapi-generator.tech/docs/templating
+java -jar /Users/davidedey/Work/openapi-generator/modules/openapi-generator-cli/target/openapi-generator-cli.jar \
+    generate \
     -i "$specLocation" \
     -g csharp-netcore \
     -o "$dummyApiDirectory" \
     --library httpclient \
-    --additional-properties=packageName=$packageName,targetFramework=net5.0,packageVersion=$packageVersion
+    --additional-properties=packageName=$packageName,targetFramework=net6.0,packageVersion=$packageVersion,nullableReferenceTypes=false
 
 # Fix various issues in the generated code
 for f in `find $dummyApiDirectory -name '*.cs'`; do
@@ -134,33 +143,12 @@ for f in `find $dummyApiDirectory -name '*.cs'`; do
   fi
 done
 
-echo
-echo "> Manual fixing step"
-echo "We now need to do some manual fixing. Specifically, we need to ensure that 0, and other default value types we want to return, get returned."
-echo "VS Code will now open at this folder. You need to go in and remove the 'EmitDefaultValue = false' attribute value on value types. Specifically:"
-echo "- AccountTransactionsRequest.Limit"
-echo "- AccountTransactionsResponse.TotalCount"
-echo "- AccountUnstakeEntry.EpochsUntilUnlocked"
-echo "- CouldNotConstructFeesError.Attempts and CouldNotConstructFeesErrorAllOf.Attempts"
-echo "- EpochRange.From and EpochRange.True"
-echo "- ErrorResponse.Code"
-echo "- LedgerState._Version, LedgerState.Epoch, LedgerState.Round"
-echo "- MessageTooLongError.LengthLimit, MessageTooLongError.AttemptedLength AND MessageTooLongErrorAllOf.LengthLimit, MessageTooLongErrorAllOf.AttemptedLength"
-echo "- NotSyncedUpError.CurrentSyncDelaySeconds, NotSyncedUpError.MaxAllowedSyncDelaySeconds and NotSyncedUpErrorAllOf.CurrentSyncDelaySeconds, NotSyncedUpErrorAllOf.MaxAllowedSyncDelaySeconds"
-echo "- PartialLedgerStateIdentifier._Version, PartialLedgerStateIdentifier.Epoch, PartialLedgerStateIdentifier.Round"
-echo "- TargetLedgerState._Version"
-echo "- TransactionBuildRequest.DisableTokenMintAndBurn"
-echo "- TransactionFinalizeRequest.Submit"
-echo "- TransactionRules.MaximumMessageLength"
-echo "- DO NOT CHANGE TransactionStatus.LedgerStateVersion as it is not required, and should actually be nullable"
-echo "- DO NOT CHANGE UnstakeTokens.UnstakePercentage as it is not required, and should actually be nullable"
-echo "- ValidatorProperties.ValidatorFeePercentage"
-echo "- ValidatorUptime.UptimePercentage, ValidatorUptime.ProposalsCompleted, ValidatorUptime.ProposalsMissed"
-echo
-echo "Close VS Code when you're done, then press any key to continue in this prompt, and the generation process will continue."
-code $dummyApiDirectory
-read -n 1
-# exit 1
+# Uncomment these lines to see the code, to debug:
+# echo
+# echo "> Manual review step"
+# echo "Close VS Code when you're done, then press any key to continue in this prompt, and the generation process will continue."
+# code $dummyApiDirectory
+# read -n 1
 
 cd "$dummyApiDirectory"
 dotnet pack
