@@ -932,7 +932,7 @@ components:
         public_key:
           $ref: "#/components/schemas/PublicKey"
         bytes:
-          description: The signature in DER format, hex-encoded.
+          description: An ECDSA signature of the payload to sign with the given `public_key`. The ECDSA signature should be created using the secp256k1 curve and should be encoded in DER format, and then encoded as a hex string.
           type: string
     TransactionFinalizeResponse:
       type: object
