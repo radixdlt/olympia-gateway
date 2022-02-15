@@ -27,7 +27,7 @@ data "aws_secretsmanager_secret_version" "grafana-cloud-url" {
 }
 
 provider "grafana" {
-  url = jsondecode(data.aws_secretsmanager_secret_version.grafana-cloud-url.secret_string)["GRAFANA_CLOUD_URL"]
+  url             = jsondecode(data.aws_secretsmanager_secret_version.grafana-cloud-url.secret_string)["GRAFANA_CLOUD_URL"]
   auth            = jsondecode(data.aws_secretsmanager_secret_version.grafana-cloud-api-key.secret_string)["GRAFANA_CLOUD_API_KEY"]
   sm_access_token = jsondecode(data.aws_secretsmanager_secret_version.grafana-sm-token.secret_string)["GRAFANA_SM_ACCESS_TOKEN"]
 }
@@ -41,9 +41,9 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "radixdlt-blackbox-grafana-monitoring-state"
-    key    = "blackbox-monitoring/network-gateway/mainnet/terraform.tfstate"
-    region = "eu-west-1"
+    bucket         = "radixdlt-blackbox-grafana-monitoring-state"
+    key            = "blackbox-monitoring/network-gateway/mainnet/terraform.tfstate"
+    region         = "eu-west-1"
     dynamodb_table = "blackbox-grafana-monitoring-up-and-running-locks"
     encrypt        = true
   }
