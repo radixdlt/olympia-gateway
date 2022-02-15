@@ -127,6 +127,11 @@ public static class TransactionBuilding
         return UpDataOperation(resourceAddress.ToEntityIdentifier(), tokenMetadata);
     }
 
+    public static Core.Operation UpdateValidatorRegistration(this ValidatedValidatorAddress validatorAddress, Core.PreparedValidatorRegistered preparedValidatorRegistered)
+    {
+        return UpDataOperation(validatorAddress.ToEntityIdentifier(), preparedValidatorRegistered);
+    }
+
     public static Core.EntityIdentifier ToEntityIdentifier(this ValidatedAccountAddress accountAddress)
     {
         return new Core.EntityIdentifier(
@@ -139,6 +144,14 @@ public static class TransactionBuilding
     {
         return new Core.EntityIdentifier(
             address: resourceAddress.Rri,
+            subEntity: null
+        );
+    }
+
+    public static Core.EntityIdentifier ToEntityIdentifier(this ValidatedValidatorAddress validatorAddress)
+    {
+        return new Core.EntityIdentifier(
+            address: validatorAddress.Address,
             subEntity: null
         );
     }

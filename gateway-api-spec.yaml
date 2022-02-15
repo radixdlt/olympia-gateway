@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  version: 1.0.3
+  version: 1.1.0
   title: Radix Gateway API
   license:
     name: The Radix License, Version 1.0
@@ -780,6 +780,26 @@ components:
               "$ref": "#/components/schemas/AccountIdentifier"
             amount:
               "$ref": "#/components/schemas/TokenAmount"
+    RegisterValidator:
+      allOf:
+        - "$ref": "#/components/schemas/Action"
+        - type: object
+          required:
+            - validator
+          properties:
+            validator:
+              description: "The validator to register. The transaction will need to be signed by the validator's private key."
+              "$ref": "#/components/schemas/ValidatorIdentifier"
+    UnregisterValidator:
+      allOf:
+        - "$ref": "#/components/schemas/Action"
+        - type: object
+          required:
+            - validator
+          properties:
+            validator:
+              description: "The validator to unregister. The transaction will need to be signed by the validator's private key."
+              "$ref": "#/components/schemas/ValidatorIdentifier"
     Action:
       type: object
       required:
@@ -796,6 +816,8 @@ components:
           UnstakeTokens: "#/components/schemas/UnstakeTokens"
           MintTokens: "#/components/schemas/MintTokens"
           BurnTokens: "#/components/schemas/BurnTokens"
+          RegisterValidator: "#/components/schemas/RegisterValidator"
+          UnregisterValidator: "#/components/schemas/UnregisterValidator"
     TransactionRulesRequest:
       type: object
       required:
