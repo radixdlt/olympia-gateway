@@ -21,4 +21,5 @@ RUN dotnet publish "src/DataAggregator/DataAggregator.csproj" -c Release -o /app
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=build /src/efbundle .
 ENTRYPOINT ["dotnet", "DataAggregator.dll"]
