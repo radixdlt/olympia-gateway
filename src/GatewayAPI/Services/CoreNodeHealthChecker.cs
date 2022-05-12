@@ -129,11 +129,16 @@ public class CoreNodeHealthChecker : ICoreNodeHealthChecker
             .Select(kv => (CoreApiNode: kv.Key, Status: DetermineNodeStatus(kv.Value, topOfLedgerStateVersion)))
             .ToLookup(p => p.Status, p => p.CoreApiNode);
 
+        _logger.LogInformation(
+            "Checking core nodes health, top of ledger state version is {}, core nodes by status = {}",
+            topOfLedgerStateVersion, coreNodesByStatus);
+
         return new CoreNodeHealthResult(coreNodesByStatus);
     }
 
     private CoreNodeStatus DetermineNodeStatus(long? maybeNodeStateVersion, long topOfLedgerStateVersion)
     {
+        _logger.LogInformation("Determine node status, node state version = {}, top of ledger = {}", maybeNodeStateVersion, topOfLedgerStateVersion);
         if (maybeNodeStateVersion == null)
         {
             return CoreNodeStatus.Unhealthy;
