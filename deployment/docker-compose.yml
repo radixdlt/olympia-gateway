@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   fullnode:
-    image: radixdlt/radixdlt-core:1.1.0
+    image: radixdlt/radixdlt-core:1.1.1
     profiles: ["fullnode"]
     init: true
     ports:
@@ -46,7 +46,7 @@ services:
       POSTGRES_DB: "${POSTGRES_DB_NAME}"
 
   data_aggregator: # This is the base -- the _image and _built containers are defined below
-    image: radixdlt/ng-data-aggregator:1.1.2
+    image: radixdlt/ng-data-aggregator:1.1.3
     profiles: ["NONE"]
     deploy:
       restart_policy:
@@ -92,7 +92,7 @@ services:
       - ./data-aggregator-fixed-configuration.json:/home/radixdlt/network-gateway/config.json
 
   gateway_api: # This is the base -- the _image and _built containers are defined below
-    image: radixdlt/ng-gateway-api:1.1.2
+    image: radixdlt/ng-gateway-api:1.1.3
     profiles: ["NONE"]
     ports:
       - "127.0.0.1:5308:80" # This allows you to connect to the API at http://localhost:5308
