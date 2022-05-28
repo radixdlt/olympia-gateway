@@ -16,7 +16,7 @@ services:
       RADIXDLT_NETWORK_ID: "${FULLNODE_NETWORK_ID}"
       RADIXDLT_NETWORK_SEEDS_REMOTE: "${FULLNODE_NETWORK_BOOTSTRAP_NODE}"
       RADIX_NODE_KEYSTORE_PASSWORD: "${FULLNODE_KEY_PASSWORD}"
-      JAVA_OPTS: -server -Xmx1536m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseCompressedOops -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=jks -Djava.security.egd=file:/dev/urandom -DLog4jContextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector
+      JAVA_OPTS: -server -Xmx1536m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseCompressedOops -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=jks -Djava.security.egd=file:/dev/urandom -DLog4jContextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector --enable-preview
       RADIXDLT_VALIDATOR_KEY_LOCATION: "/home/radixdlt/node-keystore.ks"
       RADIXDLT_API_PORT: 3333
       RADIXDLT_TRANSACTIONS_API_ENABLE: "true"
