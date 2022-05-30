@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   fullnode:
-    image: radixdlt/radixdlt-core:1.2.1-rc.3 # This RC is good for production for Full Nodes; and is required for Stokenet syncing.
+    image: radixdlt/radixdlt-core:1.2.1
     profiles: ["fullnode"]
     init: true
     ports:
