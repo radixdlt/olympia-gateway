@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  version: 1.1.4
+  version: 1.1.6
   title: Radix Gateway API
   license:
     name: The Radix License, Version 1.0
