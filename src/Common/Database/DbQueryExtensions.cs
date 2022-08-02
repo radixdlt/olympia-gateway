@@ -115,32 +115,28 @@ public static class DbQueryExtensions
             .Select(lt => lt.TopOfLedgerTransaction);
     }
 
-    public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionBeforeStateVersion<TDbContext>(this TDbContext dbContext, long beforeStateVersion)
+    public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionAtStateVersionBoundary<TDbContext>(this TDbContext dbContext, long stateVersion, bool ascending)
         where TDbContext : CommonDbContext
     {
-        return dbContext.LedgerTransactions
-            .Where(lt => lt.ResultantStateVersion <= beforeStateVersion)
-            .OrderByDescending(lt => lt.ResultantStateVersion)
-            .Take(1);
+        return ascending
+            ? dbContext.LedgerTransactions.Where(lt => lt.ResultantStateVersion >= stateVersion).OrderBy(lt => lt.ResultantStateVersion).Take(1)
+            : dbContext.LedgerTransactions.Where(lt => lt.ResultantStateVersion <= stateVersion).OrderByDescending(lt => lt.ResultantStateVersion).Take(1);
     }
 
-    public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionBeforeTimestamp<TDbContext>(this TDbContext dbContext, Instant timestamp)
+    public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionAtTimestampBoundary<TDbContext>(this TDbContext dbContext, Instant timestamp, bool ascending)
         where TDbContext : CommonDbContext
     {
-        return dbContext.LedgerTransactions
-            .Where(lt => lt.RoundTimestamp <= timestamp)
-            .OrderByDescending(lt => lt.RoundTimestamp)
-            .ThenByDescending(lt => lt.ResultantStateVersion)
-            .Take(1);
+        return ascending
+            ? dbContext.LedgerTransactions.Where(lt => lt.RoundTimestamp >= timestamp).OrderBy(lt => lt.RoundTimestamp).ThenBy(lt => lt.ResultantStateVersion).Take(1)
+            : dbContext.LedgerTransactions.Where(lt => lt.RoundTimestamp <= timestamp).OrderByDescending(lt => lt.RoundTimestamp).ThenByDescending(lt => lt.ResultantStateVersion).Take(1);
     }
 
-    public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionAtEpochRound<TDbContext>(this TDbContext dbContext, long epoch, long round)
+    public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionAtEpochRoundBoundary<TDbContext>(this TDbContext dbContext, long epoch, long round, bool ascending)
         where TDbContext : CommonDbContext
     {
-        return dbContext.LedgerTransactions
-            .Where(lt => lt.Epoch == epoch && lt.RoundInEpoch <= round && lt.IsStartOfRound)
-            .OrderByDescending(lt => lt.ResultantStateVersion)
-            .Take(1);
+        return ascending
+            ? dbContext.LedgerTransactions.Where(lt => lt.Epoch == epoch && lt.RoundInEpoch >= round && lt.IsStartOfRound).OrderBy(lt => lt.ResultantStateVersion).Take(1)
+            : dbContext.LedgerTransactions.Where(lt => lt.Epoch == epoch && lt.RoundInEpoch <= round && lt.IsStartOfRound).OrderByDescending(lt => lt.ResultantStateVersion).Take(1);
     }
 
     public static IQueryable<TSubstate> UpAtVersion<TSubstate>(

@@ -81,7 +81,7 @@ public interface ILedgerStateQuerier
 {
     Task<GatewayResponse> GetGatewayState();
 
-    Task<LedgerState> GetValidLedgerStateForReadRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier);
+    Task<LedgerState> GetValidLedgerStateForReadRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier, bool ascending = false);
 
     Task<LedgerState> GetValidLedgerStateForConstructionRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier);
 
@@ -139,10 +139,10 @@ public class LedgerStateQuerier : ILedgerStateQuerier
     }
 
     // So that we don't forget to check the network name, add the assertion in here.
-    public async Task<LedgerState> GetValidLedgerStateForReadRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier)
+    public async Task<LedgerState> GetValidLedgerStateForReadRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier, bool ascending = false)
     {
         AssertMatchingNetwork(networkIdentifier);
-        var ledgerStateReport = await GetLedgerState(atLedgerStateIdentifier);
+        var ledgerStateReport = await GetLedgerState(atLedgerStateIdentifier, ascending);
         var ledgerState = ledgerStateReport.LedgerState;
 
         if (!ResolvesToTopOfLedger(atLedgerStateIdentifier))
@@ -241,14 +241,14 @@ public class LedgerStateQuerier : ILedgerStateQuerier
 
     private record LedgerStateReport(LedgerState LedgerState, Instant RoundTimestamp);
 
-    private async Task<LedgerStateReport> GetLedgerState(PartialLedgerStateIdentifier? at = null)
+    private async Task<LedgerStateReport> GetLedgerState(PartialLedgerStateIdentifier? at = null, bool ascending = false)
     {
         return at switch
         {
             null or { _Version: 0, Timestamp: null, Epoch: 0, Round: 0 } => await GetTopOfLedgerStateReport(), // Duplicates line in ResolvesToTopOfLedger below - change both together!
-            { _Version: > 0, Timestamp: null, Epoch: 0, Round: 0 } => await GetLedgerStateBeforeStateVersion(at._Version),
-            { _Version: 0, Timestamp: { }, Epoch: 0, Round: 0 } => await GetLedgerStateBeforeTimestamp(at.Timestamp),
-            { _Version: 0, Timestamp: null, Epoch: > 0, Round: >= 0 } => await GetLedgerStateAtEpochAndRound(at.Epoch, at.Round),
+            { _Version: > 0, Timestamp: null, Epoch: 0, Round: 0 } => await GetLedgerStateAtStateVersionBoundary(at._Version, ascending),
+            { _Version: 0, Timestamp: { }, Epoch: 0, Round: 0 } => await GetLedgerStateAtTimestampBoundary(at.Timestamp, ascending),
+            { _Version: 0, Timestamp: null, Epoch: > 0, Round: >= 0 } => await GetLedgerStateAtEpochAndRoundBoundary(at.Epoch, at.Round, ascending),
             _ => throw InvalidRequestException.FromOtherError(
                 "The at_state_identifier was not either (A) missing (B) with only a state_version; (C) with only a Timestamp; (D) with only an Epoch; or (E) with only an Epoch and Round"
             ),
@@ -273,9 +273,9 @@ public class LedgerStateQuerier : ILedgerStateQuerier
         return ledgerState;
     }
 
-    private async Task<LedgerStateReport> GetLedgerStateBeforeStateVersion(long stateVersion)
+    private async Task<LedgerStateReport> GetLedgerStateAtStateVersionBoundary(long stateVersion, bool ascending)
     {
-        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionBeforeStateVersion(stateVersion));
+        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionAtStateVersionBoundary(stateVersion, ascending));
 
         if (ledgerState == null)
         {
@@ -285,7 +285,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
         return ledgerState;
     }
 
-    private async Task<LedgerStateReport> GetLedgerStateBeforeTimestamp(string timestamp)
+    private async Task<LedgerStateReport> GetLedgerStateAtTimestampBoundary(string timestamp, bool ascending)
     {
         var validatedTimestamp = _validations.ExtractValidTimestamp("The ledger state timestamp", timestamp);
 
@@ -294,7 +294,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
             throw InvalidRequestException.FromOtherError("Timestamp is in the future");
         }
 
-        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionBeforeTimestamp(validatedTimestamp));
+        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionAtTimestampBoundary(validatedTimestamp, ascending));
 
         if (ledgerState == null)
         {
@@ -304,9 +304,9 @@ public class LedgerStateQuerier : ILedgerStateQuerier
         return ledgerState;
     }
 
-    private async Task<LedgerStateReport> GetLedgerStateAtEpochAndRound(long epoch, long round)
+    private async Task<LedgerStateReport> GetLedgerStateAtEpochAndRoundBoundary(long epoch, long round, bool ascending)
     {
-        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionAtEpochRound(epoch, round));
+        var ledgerState = await GetLedgerStateFromQuery(_dbContext.GetLatestLedgerTransactionAtEpochRoundBoundary(epoch, round, ascending));
 
         if (ledgerState == null)
         {

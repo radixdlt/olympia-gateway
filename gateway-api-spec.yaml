@@ -917,6 +917,9 @@ components:
         limit:
           description: The page size requested. The maximum value is 30 at present.
           type: integer
+        ascending:
+          description: Use ascending ordering of transactions.
+          type: boolean
       example:
         network_identifier:
           network: mainnet

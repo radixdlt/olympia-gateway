@@ -118,7 +118,7 @@ public class TransactionController : ControllerBase
     [HttpPost("recent")]
     public async Task<RecentTransactionsResponse> GetRecentTransactions(RecentTransactionsRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
+        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier, request.Ascending);
 
         var unvalidatedLimit = request.Limit is default(int) ? 10 : request.Limit;
 
@@ -129,7 +129,8 @@ public class TransactionController : ControllerBase
                 unvalidatedLimit,
                 1,
                 _gatewayApiConfiguration.GetMaxPageSize()
-            )
+            ),
+            AscendingOrder: request.Ascending
         );
 
         var results = await _transactionQuerier.GetRecentUserTransactions(transactionsPageRequest, ledgerState);
