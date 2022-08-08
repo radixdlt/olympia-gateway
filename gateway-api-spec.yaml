@@ -911,6 +911,8 @@ components:
           $ref: "#/components/schemas/NetworkIdentifier"
         at_state_identifier:
           $ref: "#/components/schemas/PartialLedgerStateIdentifier"
+        from_state_identifier:
+          $ref: "#/components/schemas/PartialLedgerStateIdentifier"
         cursor:
           description: This cursor allows forward pagination, by providing the cursor from the previous request.
           type: string

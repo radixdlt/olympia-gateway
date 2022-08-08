@@ -124,6 +124,15 @@ public static class DbQueryExtensions
             .Take(1);
     }
 
+    public static IQueryable<LedgerTransaction> GetFirstLedgerTransactionAfterStateVersion<TDbContext>(this TDbContext dbContext, long afterStateVersion)
+        where TDbContext : CommonDbContext
+    {
+        return dbContext.LedgerTransactions
+            .Where(lt => lt.ResultantStateVersion >= afterStateVersion)
+            .OrderBy(lt => lt.ResultantStateVersion)
+            .Take(1);
+    }
+
     public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionBeforeTimestamp<TDbContext>(this TDbContext dbContext, Instant timestamp)
         where TDbContext : CommonDbContext
     {
@@ -134,12 +143,31 @@ public static class DbQueryExtensions
             .Take(1);
     }
 
+    public static IQueryable<LedgerTransaction> GetFirstLedgerTransactionAfterTimestamp<TDbContext>(this TDbContext dbContext, Instant timestamp)
+        where TDbContext : CommonDbContext
+    {
+        return dbContext.LedgerTransactions
+            .Where(lt => lt.RoundTimestamp >= timestamp)
+            .OrderBy(lt => lt.RoundTimestamp)
+            .ThenBy(lt => lt.ResultantStateVersion)
+            .Take(1);
+    }
+
     public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionAtEpochRound<TDbContext>(this TDbContext dbContext, long epoch, long round)
         where TDbContext : CommonDbContext
     {
         return dbContext.LedgerTransactions
             .Where(lt => lt.Epoch == epoch && lt.RoundInEpoch <= round && lt.IsStartOfRound)
             .OrderByDescending(lt => lt.ResultantStateVersion)
+            .Take(1);
+    }
+
+    public static IQueryable<LedgerTransaction> GetFirstLedgerTransactionAtEpochRound<TDbContext>(this TDbContext dbContext, long epoch, long round)
+        where TDbContext : CommonDbContext
+    {
+        return dbContext.LedgerTransactions
+            .Where(lt => lt.Epoch == epoch && lt.RoundInEpoch >= round && lt.IsStartOfRound)
+            .OrderBy(lt => lt.ResultantStateVersion)
             .Take(1);
     }
 
