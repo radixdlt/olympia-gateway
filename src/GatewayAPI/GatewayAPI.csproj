@@ -21,8 +21,4 @@
     <ItemGroup>
         <ProjectReference Include="..\Common\Common.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Fallback" />
-    </ItemGroup>
 </Project>

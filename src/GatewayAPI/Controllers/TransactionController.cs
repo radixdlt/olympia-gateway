@@ -123,7 +123,7 @@ public class TransactionController : ControllerBase
 
         if (fromLedgerState != null && fromLedgerState._Version > atLedgerState._Version)
         {
-            throw InvalidRequestException.FromOtherError("From Ledger State must be before than At Ledger State");
+            throw InvalidRequestException.FromOtherError("From Ledger State must be before At Ledger State");
         }
 
         var unvalidatedLimit = request.Limit is default(int) ? 10 : request.Limit;

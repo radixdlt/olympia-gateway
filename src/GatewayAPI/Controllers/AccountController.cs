@@ -66,6 +66,7 @@ using Common.Addressing;
 using GatewayAPI.ApiSurface;
 using GatewayAPI.Configuration;
 using GatewayAPI.Database;
+using GatewayAPI.Exceptions;
 using GatewayAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using RadixGatewayApi.Generated.Model;
@@ -142,25 +143,26 @@ public class AccountController : ControllerBase
     public async Task<AccountTransactionsResponse> GetAccountTransactions(AccountTransactionsRequest request)
     {
         var accountAddress = _validations.ExtractValidAccountAddress(request.AccountIdentifier);
-        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
+        var atLedgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
+        var fromLedgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadForwardRequest(request.NetworkIdentifier, request.FromStateIdentifier);
+
+        if (fromLedgerState != null && fromLedgerState._Version > atLedgerState._Version)
+        {
+            throw InvalidRequestException.FromOtherError("From Ledger State must be before than At Ledger State");
+        }
 
         var unvalidatedLimit = request.Limit is default(int) ? 10 : request.Limit;
 
         var transactionsPageRequest = new AccountTransactionPageRequest(
             accountAddress,
             Cursor: CommittedTransactionPaginationCursor.FromCursorString(request.Cursor),
-            PageSize: _validations.ExtractValidIntInBoundInclusive(
-                "Page size",
-                unvalidatedLimit,
-                1,
-                _gatewayApiConfiguration.GetMaxPageSize()
-            )
+            PageSize: _validations.ExtractValidIntInBoundInclusive("Page size", unvalidatedLimit, 1, _gatewayApiConfiguration.GetMaxPageSize())
         );
 
-        var results = await _transactionQuerier.GetAccountTransactions(transactionsPageRequest, ledgerState);
+        var results = await _transactionQuerier.GetAccountTransactions(transactionsPageRequest, atLedgerState, fromLedgerState);
 
         return new AccountTransactionsResponse(
-            ledgerState,
+            atLedgerState,
             totalCount: results.TotalRecords,
             nextCursor: results.NextPageCursor?.ToCursorString(),
             results.Transactions

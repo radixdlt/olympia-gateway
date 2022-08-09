@@ -308,7 +308,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
 
         if (ledgerState == null)
         {
-            throw new InvalidStateException("There are no transactions in the database");
+            throw new InvalidStateException("State version is beyond the end of the known ledger");
         }
 
         return ledgerState;
@@ -370,7 +370,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
 
         if (ledgerState == null)
         {
-            throw InvalidRequestException.FromOtherError($"Epoch {epoch} is beyond the end of the known ledger");
+            throw InvalidRequestException.FromOtherError($"Epoch {epoch} round {round} is beyond the end of the known ledger");
         }
 
         return ledgerState;

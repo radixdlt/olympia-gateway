@@ -710,6 +710,8 @@ components:
           $ref: "#/components/schemas/AccountIdentifier"
         at_state_identifier:
           $ref: "#/components/schemas/PartialLedgerStateIdentifier"
+        from_state_identifier:
+          $ref: "#/components/schemas/PartialLedgerStateIdentifier"
         cursor:
           description: This cursor allows forward pagination, by providing the cursor from the previous request.
           type: string
@@ -1159,7 +1161,7 @@ components:
           type: integer
           format: int64
     PartialLedgerStateIdentifier:
-      description: Optional. Allows a client to request a response referencing an earlier ledger state.
+      description: Optional. Allows a client to request a response referencing an earlier (`at_*` properties) or later (`from_*` properties) ledger state.
       type: object
       properties:
         version:
