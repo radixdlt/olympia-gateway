@@ -118,25 +118,26 @@ public class TransactionController : ControllerBase
     [HttpPost("recent")]
     public async Task<RecentTransactionsResponse> GetRecentTransactions(RecentTransactionsRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
+        var atLedgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadRequest(request.NetworkIdentifier, request.AtStateIdentifier);
+        var fromLedgerState = await _ledgerStateQuerier.GetValidLedgerStateForReadForwardRequest(request.NetworkIdentifier, request.FromStateIdentifier);
+
+        if (fromLedgerState != null && fromLedgerState._Version > atLedgerState._Version)
+        {
+            throw InvalidRequestException.FromOtherError("From Ledger State must be before At Ledger State");
+        }
 
         var unvalidatedLimit = request.Limit is default(int) ? 10 : request.Limit;
 
         var transactionsPageRequest = new RecentTransactionPageRequest(
             Cursor: CommittedTransactionPaginationCursor.FromCursorString(request.Cursor),
-            PageSize: _validations.ExtractValidIntInBoundInclusive(
-                "Page size",
-                unvalidatedLimit,
-                1,
-                _gatewayApiConfiguration.GetMaxPageSize()
-            )
+            PageSize: _validations.ExtractValidIntInBoundInclusive("Page size", unvalidatedLimit, 1, _gatewayApiConfiguration.GetMaxPageSize())
         );
 
-        var results = await _transactionQuerier.GetRecentUserTransactions(transactionsPageRequest, ledgerState);
+        var results = await _transactionQuerier.GetRecentUserTransactions(transactionsPageRequest, atLedgerState, fromLedgerState);
 
         // NB - We don't return a total here as we don't have an index on user transactions
         return new RecentTransactionsResponse(
-            ledgerState,
+            atLedgerState,
             nextCursor: results.NextPageCursor?.ToCursorString(),
             results.Transactions
         );
