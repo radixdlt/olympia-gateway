@@ -155,7 +155,7 @@ public class DefaultKernel
 
     private void AddReadOnlyDatabaseContext(HostBuilderContext hostContext, IServiceCollection services)
     {
-        services.AddDbContext<GatewayReadOnlyDbContext>(options =>
+        services.AddDbContextFactory<GatewayReadOnlyDbContext>(options =>
         {
             // https://www.npgsql.org/efcore/index.html
             options.UseNpgsql(
