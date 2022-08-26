@@ -63,9 +63,11 @@
  */
 
 using Common.Database.Models.Ledger;
+using Common.Database.Models.Ledger.Normalization;
 using Common.Database.Models.Mempool;
 using Common.Extensions;
 using Common.Numerics;
+using Common.Utilities;
 using GatewayAPI.ApiSurface;
 using GatewayAPI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -132,18 +134,21 @@ public record RecentTransactionPageRequest(
 public class TransactionQuerier : ITransactionQuerier
 {
     private readonly GatewayReadOnlyDbContext _dbContext;
+    private readonly IDbContextFactory<GatewayReadOnlyDbContext> _dbContextFactory;
     private readonly ITokenQuerier _tokenQuerier;
     private readonly INetworkConfigurationProvider _networkConfigurationProvider;
     private readonly ISubmissionTrackingService _submissionTrackingService;
 
     public TransactionQuerier(
         GatewayReadOnlyDbContext dbContext,
+        IDbContextFactory<GatewayReadOnlyDbContext> dbContextFactory,
         ITokenQuerier tokenQuerier,
         INetworkConfigurationProvider networkConfigurationProvider,
         ISubmissionTrackingService submissionTrackingService
     )
     {
         _dbContext = dbContext;
+        _dbContextFactory = dbContextFactory;
         _tokenQuerier = tokenQuerier;
         _networkConfigurationProvider = networkConfigurationProvider;
         _submissionTrackingService = submissionTrackingService;
@@ -330,39 +335,128 @@ public class TransactionQuerier : ITransactionQuerier
         }
     }
 
+    private record JoinedStaticEntityLookup(
+        Dictionary<long, Resource> Resources,
+        Dictionary<long, Validator> Validators,
+        Dictionary<long, Account> Accounts,
+        Dictionary<byte[], RawTransaction> RawTransactions
+    );
+
     private async Task<List<Gateway.TransactionInfo>> GetTransactions(List<long> transactionStateVersions)
     {
-        var transactionWithOperationGroups = await _dbContext.LedgerTransactions
-            .Where(t => transactionStateVersions.Contains(t.ResultantStateVersion))
-            .Include(t => t.SubstantiveOperationGroups)
-            .ThenInclude(op => op.InferredAction!.Resource)
-            .Include(t => t.SubstantiveOperationGroups) // https://stackoverflow.com/a/50898208
-            .ThenInclude(op => op.InferredAction!.Validator)
-            .Include(t => t.SubstantiveOperationGroups) // https://stackoverflow.com/a/50898208
-            .ThenInclude(op => op.InferredAction!.FromAccount)
-            .Include(t => t.SubstantiveOperationGroups) // https://stackoverflow.com/a/50898208
-            .ThenInclude(op => op.InferredAction!.ToAccount)
-            .Include(t => t.RawTransaction)
-            .OrderByDescending(lt => lt.ResultantStateVersion)
-            .AsSplitQuery() // See https://docs.microsoft.com/en-us/ef/core/querying/single-split-queries
-            .ToListAsync();
+        async Task<List<LedgerTransaction>> LoadLedgerTransactions(List<long> ids)
+        {
+            await using var localCtx = await _dbContextFactory.CreateDbContextAsync();
+
+            // we're using explicit transaction here to ensure that:
+            // a) SET LOCAL call does not leak outside of this transaction
+            // b) EF will actually reuse same database connection for both queries
+            await using var tx = await localCtx.Database.BeginTransactionAsync();
+
+            // query below tend to operate on quite significant volume of data (over 4 MiB)
+            // so in order to prevent HDD/SSD usage while applying ORDER BY clause
+            await localCtx.Database.ExecuteSqlRawAsync("SET LOCAL work_mem = '32MB';");
+
+            var result = await localCtx.LedgerTransactions
+                .Where(t => ids.Contains(t.ResultantStateVersion))
+                .Include(t => t.SubstantiveOperationGroups)
+                .OrderByDescending(lt => lt.ResultantStateVersion)
+                .ToListAsync();
+
+            await tx.CommitAsync();
+
+            if (result.Count != ids.Count)
+            {
+                throw new Exception($"Expected {ids.Count} transactions, got {result.Count}. " +
+                                    "This might be caused by replication-lag if you're using database cluster.");
+            }
+
+            return result;
+        }
+
+        async Task<Dictionary<long, Resource>> LoadResources(List<long> ids)
+        {
+            await using var localContext = await _dbContextFactory.CreateDbContextAsync();
+
+            return await localContext.Resources.Where(r => ids.Contains(r.Id)).ToDictionaryAsync(r => r.Id);
+        }
+
+        async Task<Dictionary<long, Validator>> LoadValidators(List<long> ids)
+        {
+            await using var localContext = await _dbContextFactory.CreateDbContextAsync();
+
+            return await localContext.Validators.Where(r => ids.Contains(r.Id)).ToDictionaryAsync(r => r.Id);
+        }
+
+        async Task<Dictionary<long, Account>> LoadAccounts(List<long> ids)
+        {
+            await using var localContext = await _dbContextFactory.CreateDbContextAsync();
+
+            return await localContext.Accounts.Where(r => ids.Contains(r.Id)).ToDictionaryAsync(r => r.Id);
+        }
+
+        async Task<Dictionary<byte[], RawTransaction>> LoadRawTransactions(List<byte[]> ids)
+        {
+            await using var localContext = await _dbContextFactory.CreateDbContextAsync();
+
+            return await localContext.RawTransactions.Where(r => ids.Contains(r.TransactionIdentifierHash)).ToDictionaryAsync(r => r.TransactionIdentifierHash, ByteArrayEqualityComparer.Default);
+        }
+
+        var transactionWithOperationGroups = await LoadLedgerTransactions(transactionStateVersions);
+
+        // We used to operate on single query with joins but database/ef cost associated with ~10k rows
+        // in result set was simply too big compared to this handcrafted entity construction.
+        // EntityFramework generated not very performant queries (result of .AsSplitQuery()) under the hood.
+        // What's more future version of this class will most likely cache ~99% of those resources in-memory.
+        var resourceIds = new HashSet<long>();
+        var validatorIds = new HashSet<long>();
+        var fromAccountIds = new HashSet<long>();
+        var toAccountIds = new HashSet<long>();
+        var rawTransactionIds = new HashSet<byte[]>(ByteArrayEqualityComparer.Default);
+
+        foreach (var transaction in transactionWithOperationGroups)
+        {
+            rawTransactionIds.Add(transaction.TransactionIdentifierHash);
+
+            foreach (var operationGroup in transaction.SubstantiveOperationGroups)
+            {
+                if (operationGroup.InferredAction == null)
+                {
+                    continue;
+                }
+
+                resourceIds.Add(operationGroup.InferredAction.ResourceId ?? -1);
+                validatorIds.Add(operationGroup.InferredAction.ValidatorId ?? -1);
+                fromAccountIds.Add(operationGroup.InferredAction.FromAccountId ?? -1);
+                toAccountIds.Add(operationGroup.InferredAction.ToAccountId ?? -1);
+            }
+        }
+
+        var resourcesTask = LoadResources(resourceIds.Where(id => id > 0).ToList());
+        var validatorsTask = LoadValidators(validatorIds.Where(id => id > 0).ToList());
+        var accountsTask = LoadAccounts(fromAccountIds.Concat(toAccountIds).Where(id => id > 0).ToList());
+        var rawTransactionsTask = LoadRawTransactions(rawTransactionIds.ToList());
+
+        await Task.WhenAll(resourcesTask, validatorsTask, accountsTask, rawTransactionsTask);
+
+        var entityLookup = new JoinedStaticEntityLookup(await resourcesTask, await validatorsTask, await accountsTask, await rawTransactionsTask);
 
         var gatewayTransactions = new List<Gateway.TransactionInfo>();
         foreach (var ledgerTransaction in transactionWithOperationGroups)
         {
-            gatewayTransactions.Add(await MapToGatewayAccountTransaction(ledgerTransaction));
+            gatewayTransactions.Add(await MapToGatewayAccountTransaction(ledgerTransaction, entityLookup));
         }
 
         return gatewayTransactions;
     }
 
-    private async Task<Gateway.TransactionInfo> MapToGatewayAccountTransaction(LedgerTransaction ledgerTransaction)
+    private async Task<Gateway.TransactionInfo> MapToGatewayAccountTransaction(LedgerTransaction ledgerTransaction, JoinedStaticEntityLookup entityLookup)
     {
         var gatewayActions = new List<Gateway.Action>();
 
         foreach (var operationGroup in ledgerTransaction.SubstantiveOperationGroups)
         {
-            var action = await GetAction(ledgerTransaction, operationGroup);
+            var action = await GetAction(ledgerTransaction, operationGroup, entityLookup);
             if (action != null)
             {
                 gatewayActions.Add(action);
@@ -379,13 +473,13 @@ public class TransactionQuerier : ITransactionQuerier
             gatewayActions,
             ledgerTransaction.FeePaid.AsGatewayTokenAmount(_networkConfigurationProvider.GetXrdTokenIdentifier()),
             new Gateway.TransactionMetadata(
-                hex: ledgerTransaction.RawTransaction!.Payload.ToHex(),
+                hex: entityLookup.RawTransactions[ledgerTransaction.TransactionIdentifierHash].Payload.ToHex(),
                 message: ledgerTransaction.Message?.ToHex()
             )
         );
     }
 
-    private async Task<Gateway.Action?> GetAction(LedgerTransaction ledgerTransaction, LedgerOperationGroup operationGroup)
+    private async Task<Gateway.Action?> GetAction(LedgerTransaction ledgerTransaction, LedgerOperationGroup operationGroup, JoinedStaticEntityLookup entityLookup)
     {
         var inferredAction = operationGroup.InferredAction;
         if (inferredAction?.Type == null)
@@ -396,7 +490,7 @@ public class TransactionQuerier : ITransactionQuerier
         // If necessary, we can improve this to prevent N+1 issues - but we expect CreatedTokenDefinitions to be rare
         async Task<Gateway.CreateTokenDefinition> GenerateCreateTokenDefinitionAction()
         {
-            var createdTokenProperties = await _tokenQuerier.GetCreatedTokenProperties(inferredAction.Resource!.ResourceIdentifier, operationGroup);
+            var createdTokenProperties = await _tokenQuerier.GetCreatedTokenProperties(entityLookup.Resources[inferredAction.ResourceId!.Value].ResourceIdentifier, operationGroup);
             return new Gateway.CreateTokenDefinition(
                 tokenProperties: createdTokenProperties.TokenProperties,
                 tokenSupply: createdTokenProperties.TokenSupply,
@@ -408,42 +502,42 @@ public class TransactionQuerier : ITransactionQuerier
         {
             InferredActionType.CreateTokenDefinition => await GenerateCreateTokenDefinitionAction(),
             InferredActionType.SelfTransfer => new Gateway.TransferTokens(
-                fromAccount: inferredAction.FromAccount!.AsGatewayAccountIdentifier(),
-                toAccount: inferredAction.ToAccount!.AsGatewayAccountIdentifier(),
-                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                fromAccount: entityLookup.Accounts[inferredAction.FromAccountId!.Value].AsGatewayAccountIdentifier(),
+                toAccount: entityLookup.Accounts[inferredAction.ToAccountId!.Value].AsGatewayAccountIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
             ),
             InferredActionType.SimpleTransfer => new Gateway.TransferTokens(
-                fromAccount: inferredAction.FromAccount!.AsGatewayAccountIdentifier(),
-                toAccount: inferredAction.ToAccount!.AsGatewayAccountIdentifier(),
-                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                fromAccount: entityLookup.Accounts[inferredAction.FromAccountId!.Value].AsGatewayAccountIdentifier(),
+                toAccount: entityLookup.Accounts[inferredAction.ToAccountId!.Value].AsGatewayAccountIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
             ),
             InferredActionType.StakeTokens => new Gateway.StakeTokens(
-                fromAccount: inferredAction.FromAccount!.AsGatewayAccountIdentifier(),
-                toValidator: inferredAction.Validator!.AsGatewayValidatorIdentifier(),
-                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                fromAccount: entityLookup.Accounts[inferredAction.FromAccountId!.Value].AsGatewayAccountIdentifier(),
+                toValidator: entityLookup.Validators[inferredAction.ValidatorId!.Value].AsGatewayValidatorIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
             ),
             InferredActionType.UnstakeTokens => new Gateway.UnstakeTokens(
-                fromValidator: inferredAction.Validator!.AsGatewayValidatorIdentifier(),
-                toAccount: inferredAction.ToAccount!.AsGatewayAccountIdentifier(),
-                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                fromValidator: entityLookup.Validators[inferredAction.ValidatorId!.Value].AsGatewayValidatorIdentifier(),
+                toAccount: entityLookup.Accounts[inferredAction.ToAccountId!.Value].AsGatewayAccountIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
             ),
             InferredActionType.MintTokens => new Gateway.MintTokens(
-                toAccount: inferredAction.ToAccount!.AsGatewayAccountIdentifier(),
-                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                toAccount: entityLookup.Accounts[inferredAction.ToAccountId!.Value].AsGatewayAccountIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
             ),
             InferredActionType.BurnTokens => new Gateway.BurnTokens(
-                fromAccount: inferredAction.FromAccount!.AsGatewayAccountIdentifier(),
-                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                fromAccount: entityLookup.Accounts[inferredAction.FromAccountId!.Value].AsGatewayAccountIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
             ),
             InferredActionType.MintXrd => new Gateway.MintTokens(
-                toAccount: inferredAction.ToAccount!.AsGatewayAccountIdentifier(),
-                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                toAccount: entityLookup.Accounts[inferredAction.ToAccountId!.Value].AsGatewayAccountIdentifier(),
+                amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
             ),
             InferredActionType.PayXrd => inferredAction.Amount!.Value == ledgerTransaction.FeePaid
                 ? null // Filter out fee payments
                 : new Gateway.BurnTokens(
-                    fromAccount: inferredAction.FromAccount!.AsGatewayAccountIdentifier(),
-                    amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(inferredAction.Resource!)
+                    fromAccount: entityLookup.Accounts[inferredAction.FromAccountId!.Value].AsGatewayAccountIdentifier(),
+                    amount: inferredAction.Amount!.Value.AsGatewayTokenAmount(entityLookup.Resources[inferredAction.ResourceId!.Value])
                 ),
             InferredActionType.Complex => null,
             _ => throw new ArgumentOutOfRangeException(),
