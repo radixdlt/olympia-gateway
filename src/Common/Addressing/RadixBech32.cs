@@ -104,8 +104,10 @@ public static class RadixBech32
 
     public static string GenerateResourceAddress(byte[] compressedAccountPublicKey, string symbol, string resourceHrpSuffix, Bech32.Variant variant = DefaultVariant)
     {
+        var short_symbol = symbol.Substring(0, Math.Min(symbol.Length, 11));
+
         return GenerateHashedKeyRadixEngineAddress(
-            $"{symbol}{resourceHrpSuffix}",
+            $"{short_symbol}{resourceHrpSuffix}",
             symbol,
             compressedAccountPublicKey,
             variant
