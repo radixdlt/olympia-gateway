@@ -95,6 +95,29 @@ public class RadixBech32Tests
         Assert.Equal(expectedAddress, Convert.ToHexString(decodedData.Data));
     }
 
+    [Theory]
+    [InlineData("012343925a206b9d3d7513e145a4b42741ac22c7d081ffc511420e1234e4372483", "verylongsymbol", "_rb", "verylongsym_rb")]
+    [InlineData("c27cee88dd2883a5467cac7687a5cf02e22c93f39fbc6adac342a8baf5ceee80cb", "anotherlongsymbol", "_rr", "anotherlong_rr")]
+    public void GivenASymbol_WhenItIsTooLong_ThenTheHrpWillBeTruncated(string pubkey, string symbol, string suffix, string expectedHrp)
+    {
+        var bech32 = RadixBech32.Decode(RadixBech32.GenerateResourceAddress(Convert.FromHexString(pubkey), symbol, suffix));
+        Assert.Equal(bech32.Hrp, expectedHrp);
+    }
+
+    [Theory]
+    [InlineData("c27cee88dd2883a5467cac7687a5cf02e22c93f39fbc6adac342a8baf5ceee80cb", "anotherlongsymbol", "anotherlong", "_rr", "anotherlong_rr")]
+    [InlineData("1552d216270b409ebe51895c9f02eef3b76553feb4fd6ea2c60391ca8bfb89a089", "truncatedsymbolone", "truncatedsymboltwo", "_rb", "truncatedsy_rb")]
+    public void GivenDifferentSymbols_WhenTheyAreTruncatedTheSame_ThenTheResultingAddressWillBeStillDifferent(string pubkey, string firstSymbol, string secondSymbol, string suffix, string expectedTruncatedHrp)
+    {
+        var firstBech32 = RadixBech32.Decode(RadixBech32.GenerateResourceAddress(Convert.FromHexString(pubkey), firstSymbol, suffix));
+        var secondBech32 = RadixBech32.Decode(RadixBech32.GenerateResourceAddress(Convert.FromHexString(pubkey), secondSymbol, suffix));
+
+        Assert.Equal(firstBech32.Hrp, secondBech32.Hrp);
+        Assert.Equal(firstBech32.Hrp, expectedTruncatedHrp);
+        Assert.NotEqual(firstSymbol, secondSymbol);
+        Assert.NotEqual(firstBech32.Data, secondBech32.Data);
+    }
+
     public static IEnumerable<object[]> Invalid_Bech32Strings => new List<object[]>
     {
         new object[] { (char)0x20 + "1nwldj5" }, // HRP character out of range

@@ -87,6 +87,7 @@ public enum RadixEngineAddressType : byte
 
 public static class RadixBech32
 {
+    public const int TruncatedSymbolLength = 11;
     public const int HashedKeyTruncatedBytesLength = 26;
     public const int CompressedPublicKeyBytesLength = 33;
     public static readonly Regex ValidResourceSymbolRegex = new("^[a-z0-9]{1,35}$");
@@ -104,8 +105,10 @@ public static class RadixBech32
 
     public static string GenerateResourceAddress(byte[] compressedAccountPublicKey, string symbol, string resourceHrpSuffix, Bech32.Variant variant = DefaultVariant)
     {
+        var shortSymbol = symbol.Substring(0, Math.Min(symbol.Length, TruncatedSymbolLength));
+
         return GenerateHashedKeyRadixEngineAddress(
-            $"{symbol}{resourceHrpSuffix}",
+            $"{shortSymbol}{resourceHrpSuffix}",
             symbol,
             compressedAccountPublicKey,
             variant
