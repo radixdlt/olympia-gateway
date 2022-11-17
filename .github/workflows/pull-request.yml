@@ -12,9 +12,9 @@ jobs:
       matrix:
         dotnet-version: ['6.0.x']
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@e2f20e631ae6d7dd3b768f56a5d2af784dd54791
       - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
-        uses: actions/setup-dotnet@v1.8.2
+        uses: actions/setup-dotnet@5a3fa01c67e60dba8f95e2878436c7151c4b5f01
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
           include-prerelease: true
@@ -32,14 +32,14 @@ jobs:
       gateway-api-tag: ${{ steps.setup_tags.outputs.gateway-api-tag }}
     steps:
       - name: Dump context
-        uses: crazy-max/ghaction-dump-context@v1
-      - uses: actions/checkout@v2
+        uses: crazy-max/ghaction-dump-context@516dbb0c760f39b4cdd750ae095f1688780f68f4
+      - uses: actions/checkout@e2f20e631ae6d7dd3b768f56a5d2af784dd54791
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Login to GCR
-        uses: docker/login-action@v1
+        uses: docker/login-action@dd4fa0671be5250ee6f50aedf4cb05514abda2c7
         with:
           registry: eu.gcr.io
           username: _json_key
@@ -53,7 +53,7 @@ jobs:
           github_action_name: ${{ github.event.action}}
 
       - name: Docker build and push DataAggregator
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         with:
           file: ./src/DataAggregator/Dockerfile
           TAGS: |
@@ -62,7 +62,7 @@ jobs:
           context: ./
 
       - name: Docker build and push Gateway API
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         with:
           file: ./src/GatewayAPI/Dockerfile
           TAGS: |
