@@ -228,6 +228,8 @@ public class DefaultKernel
             httpClientHandler.Proxy = new WebProxy(httpProxyAddress);
         }
 
+        httpClientHandler.AutomaticDecompression = DecompressionMethods.All;
+
         return httpClientHandler;
     }
 }
