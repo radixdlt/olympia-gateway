@@ -12,11 +12,11 @@ jobs:
     name: SonarCloud
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@e2f20e631ae6d7dd3b768f56a5d2af784dd54791
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: SonarScanner for .NET 6
-        uses: highbyte/sonarscan-dotnet@v2.1.2
+        uses: highbyte/sonarscan-dotnet@150e3056f1ce7b77c84e7661124f39a3ea1ac6cd
         with:
           sonarProjectKey: radixdlt_radixdlt-network-gateway
           sonarProjectName: radixdlt-network-gateway
