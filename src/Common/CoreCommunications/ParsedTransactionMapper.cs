@@ -171,6 +171,7 @@ public class ParsedTransactionMapper<T> : IParsedTransactionMapper
         // to be performant.
         var validatorStakeHistoryDictionary = await _dbContext.ValidatorStakeHistoryAtVersionForAnyValidator(stateVersionToUse)
             .Where(v => validatorAddressesForPostgreSQL.Contains(v.Validator.Address) && v.FromStateVersion <= stateVersionToUse)
+            .Include(v => v.Validator)
             .ToDictionaryAsync(
                 v => v.Validator.Address,
                 v => v.StakeSnapshot,
