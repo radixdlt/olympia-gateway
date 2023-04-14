@@ -335,30 +335,6 @@ INNER JOIN LATERAL (
 ");
     }
 
-    public static IQueryable<ValidatorStakeHistory> ValidatorStakeHistoryAtVersionForValidatorAddressesWithIncludedValidator<TDbContext>(
-        this TDbContext dbContext,
-        List<string> validatorAddresses,
-        long stateVersion
-    )
-        where TDbContext : CommonDbContext
-    {
-        return dbContext.Validators
-            .Where(v => validatorAddresses.Contains(v.Address) && v.FromStateVersion <= stateVersion)
-            .Select(v => v.Id)
-            .Select(validatorId =>
-                dbContext.Set<ValidatorStakeHistory>()
-                    .Where(h =>
-                        h.ValidatorId == validatorId
-                        && h.FromStateVersion <= stateVersion
-                    )
-                    .OrderByDescending(h => h.FromStateVersion)
-                    .Include(v => v.Validator)
-                    .FirstOrDefault()
-            )
-            .Where(vsh => vsh != null)
-            .Select(vsh => vsh!);
-    }
-
     public static IQueryable<ValidatorStakeHistory> ValidatorStakeHistoryAtVersionForValidatorIds<TDbContext>(
         this TDbContext dbContext,
         List<long> validatorIds,
