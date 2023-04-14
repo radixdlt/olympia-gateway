@@ -46,7 +46,7 @@ services:
       POSTGRES_DB: "${POSTGRES_DB_NAME}"
 
   data_aggregator: # This is the base -- the _image and _built containers are defined below
-    image: radixdlt/ng-data-aggregator:1.1.6
+    image: radixdlt/ng-data-aggregator:1.1.11
     profiles: ["NONE"]
     deploy:
       restart_policy:
