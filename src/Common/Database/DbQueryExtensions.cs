@@ -112,6 +112,7 @@ public static class DbQueryExtensions
         where TDbContext : CommonDbContext
     {
         return dbContext.LedgerStatus
+            .OrderBy(l => l.Id) // Improves query plan against mainnet-magnitude data
             .Select(lt => lt.TopOfLedgerTransaction);
     }
 

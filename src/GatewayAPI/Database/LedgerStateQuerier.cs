@@ -245,6 +245,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
     public async Task<LedgerStatus> GetLedgerStatus()
     {
         var ledgerStatus = await _dbContext.LedgerStatus
+            .OrderBy(l => l.Id) // Improve query plan against mainnet-magnitude data
             .Include(ls => ls.TopOfLedgerTransaction)
             .SingleOrDefaultAsync();
 
