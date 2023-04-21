@@ -111,9 +111,9 @@ public static class DbQueryExtensions
     public static IQueryable<LedgerTransaction> GetTopLedgerTransaction<TDbContext>(this TDbContext dbContext)
         where TDbContext : CommonDbContext
     {
-        return dbContext.LedgerStatus
-            .OrderBy(l => l.Id) // Improves query plan against mainnet-magnitude data
-            .Select(lt => lt.TopOfLedgerTransaction);
+        return dbContext.LedgerTransactions
+            .OrderByDescending(lt => lt.ResultantStateVersion)
+            .Take(1);
     }
 
     public static IQueryable<LedgerTransaction> GetLatestLedgerTransactionBeforeStateVersion<TDbContext>(this TDbContext dbContext, long beforeStateVersion)

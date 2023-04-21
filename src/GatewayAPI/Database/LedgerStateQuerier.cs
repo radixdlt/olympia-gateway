@@ -387,7 +387,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
                 lt.Epoch,
                 lt.RoundInEpoch,
             })
-            .SingleOrDefaultAsync();
+            .FirstOrDefaultAsync();
 
         return lt == null ? null : new LedgerStateReport(
             new LedgerState(
