@@ -36,7 +36,7 @@ jobs:
       - name: Upload DataAggreagtor zip
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ steps.get_release.outputs.upload_url }}
           asset_path: ./data-aggregator.zip
@@ -45,7 +45,7 @@ jobs:
       - name: Upload GatewayAPI zip
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ steps.get_release.outputs.upload_url }}
           asset_path: ./gateway-api.zip
@@ -69,11 +69,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Login to Dockerhub (release)
-        uses: docker/login-action@dd4fa0671be5250ee6f50aedf4cb05514abda2c7
+      - name: "Configure AWS credentials"
+        uses: aws-actions/configure-aws-credentials@67fbcbb121271f7775d2e7715933280b06314838
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          role-to-assume: ${{ secrets.DOCKERHUB_RELEASER_ROLE }}
+          aws-region: eu-west-2
+      - name: Read secrets from AWS Secrets Manager into environment variables
+        uses: aws-actions/aws-secretsmanager-get-secrets@v1
+        with:
+          secret-ids: |
+            DOCKERHUB, github-actions/rdxworks/dockerhub-images/release-credentials
+          parse-json-secrets: true
+      # This is version v2.1.0
+      # https://github.com/docker/login-action/releases/tag/v2.1.0
+      - if: inputs.enable_dockerhub == 'true'
+        name: Login to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{env.DOCKERHUB_USERNAME}}
+          password: ${{env.DOCKERHUB_TOKEN}}
 
       - name: Setup tags for docker image
         id: setup_tags

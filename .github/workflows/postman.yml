@@ -18,15 +18,31 @@ jobs:
     name: Sync Postman collection w/ latest main
     environment: Postman
     runs-on: ubuntu-20.04
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Get current date
         id: date
         run: echo "::set-output name=date::$(date +'%b %d, %H:%M')"
+      - name: Checkout gateway repo
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/fetch-secrets
+        name: Fetch secrets
+        with: 
+          role_name: "arn:aws:iam::308190735829:role/gh-radixdlt-network-gateway-secrets-read-access"
+          app_name: "radixdlt-network-gateway"
+          step_name: "sync_postman_collections"
+          secret_prefix: "POSTMAN_API"
+          secret_name: "github-actions/radixdlt/radixdlt-network-gateway/postman-token"
+          parse_json: true
       - name: Setup Postman credentials
         uses: DamianReeves/write-file-action@e19fd875ed54f16fc583a3486e62547ce4a5dde8
         with:
           path: .env
-          contents: POSTMAN_API_KEY=${{secrets.POSTMAN_API_TOKEN}}
+          contents: POSTMAN_API_KEY=${{env.POSTMAN_API_TOKEN}}
           write-mode: append
       - name: Create Portman configuration for Gateway API
         run: echo '{"postmanWorkspaceName":"Team Workspace"}' > cliopts.json
@@ -52,7 +68,7 @@ jobs:
             --postmanUid 14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e
       - name: Download the collection
         run: |
-          curl -X GET -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e > tmp.collection.json
+          curl -X GET -H "X-API-KEY:${{env.POSTMAN_API_TOKEN}}" https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e > tmp.collection.json
       - name: Add a timestamp to the name
         run: |
           sed -i 's/"name":".*","description":"This API/"name":"Gateway API (main) ${{steps.date.outputs.date}} UTC","description":"This API/' tmp.collection.json
@@ -61,7 +77,7 @@ jobs:
           sed -i 's/{{baseUrl}}/{{gatewayBaseUrl}}/g' tmp.collection.json
       - name: Update the collection
         run: |
-          curl -X PUT -H "X-API-KEY:${{secrets.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
+          curl -X PUT -H "X-API-KEY:${{env.POSTMAN_API_TOKEN}}" -H "Content-Type: application/json" \
             https://api.getpostman.com/collections/14449947-b6b059b1-67db-46ea-901b-cb446c3c3a1e --data "@tmp.collection.json"
       - name: Validate the collection against RCnet
         run: |
