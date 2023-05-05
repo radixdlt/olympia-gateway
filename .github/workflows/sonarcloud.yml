@@ -22,7 +22,7 @@ jobs:
         name: Fetch secrets
         with: 
           role_name: "arn:aws:iam::308190735829:role/gh-common-secrets-read-access"
-          app_name: "babylon-gateway"
+          app_name: "radixdlt-network-gateway"
           step_name: "sonarcloud"
           secret_prefix: "SONAR"
           # SonarCloud access token should be generated from https://sonarcloud.io/account/security/
