@@ -79,6 +79,9 @@ jobs:
   deploy-on-sandpitnet:
     runs-on: ubuntu-22.04
     needs: publish-docker
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@e2f20e631ae6d7dd3b768f56a5d2af784dd54791
         with:
