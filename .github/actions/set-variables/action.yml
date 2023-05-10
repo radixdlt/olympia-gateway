@@ -51,10 +51,10 @@ runs:
             echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
             echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
 
-            echo "::set-output name=data_aggregator_tags::$DATA_AGGREGATOR_TAGS"
-            echo "::set-output name=gateway_api_tags::$GATEWAY_API_TAGS"
-            echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
-            echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
+            echo "data_aggregator_tags=$DATA_AGGREGATOR_TAGS" >> $GITHUB_OUTPUT
+            echo "gateway_api_tags=$GATEWAY_API_TAGS" >> $GITHUB_OUTPUT
+            echo "data-aggregator-tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
+            echo "gateway-api-tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
 
         else
             DOCKER_REPO_DATA_AGGREGATOR="eu.gcr.io/dev-container-repo/ng-data-aggregator"
@@ -66,9 +66,9 @@ runs:
             echo "DATA_AGGREGATOR_TAGS: $DATA_AGGREGATOR_TAGS"
             echo "GATEWAY_API_TAGS: $GATEWAY_API_TAGS"
 
-            echo "::set-output name=data_aggregator_tags::$DATA_AGGREGATOR_TAGS"
-            echo "::set-output name=gateway_api_tags::$GATEWAY_API_TAGS"
-            echo "::set-output name=data-aggregator-tag::$DOCKER_TAG"
-            echo "::set-output name=gateway-api-tag::$DOCKER_TAG"
+            echo "data_aggregator_tags=$DATA_AGGREGATOR_TAGS" >> $GITHUB_OUTPUT
+            echo "gateway_api_tags=$GATEWAY_API_TAGS" >> $GITHUB_OUTPUT
+            echo "data-aggregator-tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
+            echo "gateway-api-tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
         fi
       shell: bash
