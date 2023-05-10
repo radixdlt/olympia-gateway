@@ -55,6 +55,9 @@ jobs:
   publish-docker:
     runs-on: ubuntu-22.04
     environment: release
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Dump context
         uses: crazy-max/ghaction-dump-context@516dbb0c760f39b4cdd750ae095f1688780f68f4
