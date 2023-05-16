@@ -6,7 +6,22 @@ jobs:
   dispatch-pr-hns-deletion-events:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      contents: read
     steps:
+      - uses: actions/checkout@e2f20e631ae6d7dd3b768f56a5d2af784dd54791
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - uses: ./.github/actions/fetch-secrets
+        name: Fetch secrets
+        with: 
+          role_name: "arn:aws:iam::308190735829:role/gh-radixdlt-network-gateway-secrets-read-access"
+          app_name: "radixdlt-network-gateway"
+          step_name: "dispatch-pr-hns-deletion-events"
+          secret_prefix: "CF_GITHUB_WORKER"
+          secret_name: "github-actions/radixdlt/radixdlt-network-gateway/cloudflare"
+          parse_json: true  
       - name: Get PR HSN
         run: |
           pull_number=${{ github.event.number }}
@@ -17,7 +32,7 @@ jobs:
         run: |
           curl --silent --show-error --fail --location --request POST 'https://github-worker.radixdlt.com/repos/radixdlt/${{secrets.DISPATCH_REPO}}/dispatches' \
             --header 'Accept: application/vnd.github.v3+json' \
-            --header 'Authorization: Basic ${{secrets.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
+            --header 'Authorization: Basic ${{env.CF_GITHUB_WORKER_ENCODED_BASIC_AUTH}}' \
             --header 'Content-Type: application/json' \
             --data-raw '{
                 "event_type": "${{env.EVENT_TYPE}}",
