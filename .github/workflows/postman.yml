@@ -31,8 +31,8 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/fetch-secrets
         name: Fetch secrets
-        with: 
-          role_name: "arn:aws:iam::308190735829:role/gh-radixdlt-network-gateway-secrets-read-access"
+        with:
+          role_name: "${{ secrets.NG_SECRETS_ROLE_ARN }}"
           app_name: "radixdlt-network-gateway"
           step_name: "sync_postman_collections"
           secret_prefix: "POSTMAN_API"
