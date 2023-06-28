@@ -15,13 +15,13 @@ jobs:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - uses: ./.github/actions/fetch-secrets
         name: Fetch secrets
-        with: 
-          role_name: "arn:aws:iam::308190735829:role/gh-radixdlt-network-gateway-secrets-read-access"
+        with:
+          role_name: "${{ secrets.NG_SECRETS_ROLE_ARN }}"
           app_name: "radixdlt-network-gateway"
           step_name: "dispatch-pr-hns-deletion-events"
           secret_prefix: "CF_GITHUB_WORKER"
           secret_name: "github-actions/radixdlt/radixdlt-network-gateway/cloudflare"
-          parse_json: true  
+          parse_json: true
       - name: Get PR HSN
         run: |
           pull_number=${{ github.event.number }}
