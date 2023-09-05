@@ -33,24 +33,15 @@ jobs:
 
           zip -r data-aggregator.zip src/DataAggregator/output/
           zip -r gateway-api.zip src/GatewayAPI/output/
-      - name: Upload DataAggreagtor zip
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+
+          mv ./data-aggregator.zip data-aggregator-${{ github.event.release.tag_name }}-linux-x64.zip
+          mv ./gateway-api.zip gateway-api-${{ github.event.release.tag_name }}-linux-x64.zip
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@c9b46fe7aad9f02afd89b12450b780f52dacfb2d
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ./data-aggregator.zip
-          asset_name: data-aggregator-${{ github.event.release.tag_name }}-linux-x64.zip
-          asset_content_type: application/zip
-      - name: Upload GatewayAPI zip
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ./gateway-api.zip
-          asset_name: gateway-api-${{ github.event.release.tag_name }}-linux-x64.zip
-          asset_content_type: application/zip
+          files: |
+            data-aggregator-${{ github.event.release.tag_name }}-linux-x64.zip
+            gateway-api-${{ github.event.release.tag_name }}-linux-x64.zip
 
   publish-docker:
     runs-on: ubuntu-22.04
