@@ -76,6 +76,11 @@ namespace GatewayAPI.Controllers;
 [Route("transaction")]
 public class TransactionController : ControllerBase
 {
+    private const string DecommissionedMessage =
+        "Radix has now migrated to Babylon, but you are attempting to create a transaction against " +
+        "the old Olympia version, which isn't possible. Please see https://wallet.radixdlt.com/ to get an " +
+        "updated wallet or https://docs.radixdlt.com/ for documentation concerning integrating with Babylon.";
+
     private readonly IValidations _validations;
     private readonly ILedgerStateQuerier _ledgerStateQuerier;
     private readonly ITransactionQuerier _transactionQuerier;
@@ -166,18 +171,18 @@ public class TransactionController : ControllerBase
     [HttpPost("build")]
     public Task<TransactionBuildResponse> BuildTransaction(TransactionBuildRequest request)
     {
-        throw InvalidRequestException.FromOtherError("Olympia Network has been decommissioned.", "TX build attempt");
+        throw InvalidRequestException.FromOtherError(DecommissionedMessage, "TX build attempt");
     }
 
     [HttpPost("finalize")]
     public Task<TransactionFinalizeResponse> FinalizeTransaction(TransactionFinalizeRequest request)
     {
-        throw InvalidRequestException.FromOtherError("Olympia Network has been decommissioned.", "TX finalize attempt");
+        throw InvalidRequestException.FromOtherError(DecommissionedMessage, "TX finalize attempt");
     }
 
     [HttpPost("submit")]
     public Task<TransactionSubmitResponse> SubmitTransaction(TransactionSubmitRequest request)
     {
-        throw InvalidRequestException.FromOtherError("Olympia Network has been decommissioned.", "TX submit attempt");
+        throw InvalidRequestException.FromOtherError(DecommissionedMessage, "TX submit attempt");
     }
 }
