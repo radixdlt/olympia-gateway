@@ -145,38 +145,7 @@ public class LedgerStateQuerier : ILedgerStateQuerier
     {
         AssertMatchingNetwork(networkIdentifier);
         var ledgerStateReport = await GetLedgerState(atLedgerStateIdentifier);
-        var ledgerState = ledgerStateReport.LedgerState;
-
-        if (!ResolvesToTopOfLedger(atLedgerStateIdentifier))
-        {
-            return ledgerState;
-        }
-
-        var acceptableLedgerLag = _gatewayApiConfiguration.GetAcceptableLedgerLag();
-        var timestampDiff = SystemClock.Instance.GetCurrentInstant() - ledgerStateReport.RoundTimestamp;
-
-        _ledgerTipRoundTimestampVsGatewayApiClockLagAtLastRequestSeconds.Set(timestampDiff.TotalSeconds);
-
-        if (timestampDiff.TotalSeconds <= acceptableLedgerLag.ReadRequestAcceptableDbLedgerLagSeconds)
-        {
-            return ledgerState;
-        }
-
-        if (acceptableLedgerLag.PreventReadRequestsIfDbLedgerIsBehind)
-        {
-            throw NotSyncedUpException.FromRequest(
-                NotSyncedUpRequestType.Read,
-                timestampDiff,
-                acceptableLedgerLag.ReadRequestAcceptableDbLedgerLagSeconds
-            );
-        }
-
-        _logger.LogWarning(
-            "The DB ledger is currently {HumanReadableDelay} behind, so the read query will not be up to date with the current ledger",
-            timestampDiff.FormatPositiveDurationHumanReadable()
-        );
-
-        return ledgerState;
+        return ledgerStateReport.LedgerState;
     }
 
     public async Task<LedgerState> GetValidLedgerStateForConstructionRequest(NetworkIdentifier networkIdentifier, PartialLedgerStateIdentifier? atLedgerStateIdentifier)
@@ -184,36 +153,6 @@ public class LedgerStateQuerier : ILedgerStateQuerier
         AssertMatchingNetwork(networkIdentifier);
         var ledgerStateReport = await GetLedgerState(atLedgerStateIdentifier);
         var ledgerState = ledgerStateReport.LedgerState;
-
-        if (!ResolvesToTopOfLedger(atLedgerStateIdentifier))
-        {
-            return ledgerState;
-        }
-
-        var acceptableLedgerLag = _gatewayApiConfiguration.GetAcceptableLedgerLag();
-        var timestampDiff = SystemClock.Instance.GetCurrentInstant() - ledgerStateReport.RoundTimestamp;
-
-        _ledgerTipRoundTimestampVsGatewayApiClockLagAtLastRequestSeconds.Set(timestampDiff.TotalSeconds);
-
-        if (timestampDiff.TotalSeconds <= acceptableLedgerLag.ConstructionRequestsAcceptableDbLedgerLagSeconds)
-        {
-            return ledgerState;
-        }
-
-        if (acceptableLedgerLag.PreventConstructionRequestsIfDbLedgerIsBehind)
-        {
-            throw NotSyncedUpException.FromRequest(
-                NotSyncedUpRequestType.Construction,
-                timestampDiff,
-                acceptableLedgerLag.ConstructionRequestsAcceptableDbLedgerLagSeconds
-            );
-        }
-
-        _logger.LogWarning(
-            "The DB ledger is currently {HumanReadableDelay} behind, so the construction query may be validated incorrectly (or built incorrectly using historic stake records for unstake calculations)",
-            timestampDiff.FormatPositiveDurationHumanReadable()
-        );
-
         return ledgerState;
     }
 
