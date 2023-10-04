@@ -43,6 +43,25 @@ jobs:
             data-aggregator-${{ github.event.release.tag_name }}-linux-x64.zip
             gateway-api-${{ github.event.release.tag_name }}-linux-x64.zip
 
+  oidc_debug_test:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    name: A test of the oidc debugger
+    steps:
+      - name: Checkout actions-oidc-debugger
+        uses: actions/checkout@v3
+        with:
+          repository: github/actions-oidc-debugger
+          ref: main
+          token: ${{ github.token }}
+          path: ./.github/actions/actions-oidc-debugger
+      - name: Debug OIDC Claims
+        uses: ./.github/actions/actions-oidc-debugger
+        with:
+          audience: 'https://github.com/github'
+
   publish-docker:
     runs-on: ubuntu-22.04
     environment: release
