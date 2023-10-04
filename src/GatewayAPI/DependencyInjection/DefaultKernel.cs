@@ -66,13 +66,9 @@ using Common.CoreCommunications;
 using Common.Extensions;
 using GatewayAPI.ApiSurface;
 using GatewayAPI.Configuration;
-using GatewayAPI.CoreCommunications;
 using GatewayAPI.Database;
 using GatewayAPI.Services;
-using GatewayAPI.Workers;
 using Microsoft.EntityFrameworkCore;
-using Prometheus;
-using System.Net;
 
 namespace GatewayAPI.DependencyInjection;
 
@@ -82,18 +78,11 @@ public class DefaultKernel
     {
         // Singleton-Scoped services
         AddSingletonServices(services);
-        AddHostedServices(services);
 
         // Request scoped services
         AddRequestScopedServices(services);
         AddReadOnlyDatabaseContext(hostBuilderContext, services);
         AddReadWriteDatabaseContext(hostBuilderContext, services);
-
-        // Other scoped services
-        AddWorkerScopedServices(services);
-
-        // Transient (pooled) services
-        AddCoreApiHttpClient(services);
     }
 
     private void AddSingletonServices(IServiceCollection services)
@@ -108,12 +97,6 @@ public class DefaultKernel
         services.AddSingleton<IValidationErrorHandler, ValidationErrorHandler>();
         services.AddSingleton<IEntityDeterminer, EntityDeterminer>();
         services.AddSingleton<IActionInferrer, ActionInferrer>();
-        services.AddSingleton<ICoreNodesSelectorService, CoreNodesSelectorService>();
-    }
-
-    private void AddHostedServices(IServiceCollection services)
-    {
-        services.AddHostedService<CoreNodesSupervisorStatusReviseWorker>();
     }
 
     private void AddRequestScopedServices(IServiceCollection services)
@@ -123,34 +106,8 @@ public class DefaultKernel
         services.AddScoped<ITokenQuerier, TokenQuerier>();
         services.AddScoped<IValidatorQuerier, ValidatorQuerier>();
         services.AddScoped<ITransactionQuerier, TransactionQuerier>();
-        services.AddScoped<IConstructionAndSubmissionService, ConstructionAndSubmissionService>();
         services.AddScoped<ISubmissionTrackingService, SubmissionTrackingService>();
         services.AddScoped<IParsedTransactionMapper, ParsedTransactionMapper<GatewayReadWriteDbContext>>();
-    }
-
-    private void AddWorkerScopedServices(IServiceCollection services)
-    {
-        services.AddScoped<ICoreNodeHealthChecker, CoreNodeHealthChecker>();
-    }
-
-    private void AddCoreApiHttpClient(IServiceCollection services)
-    {
-        // NB - AddHttpClient is essentially like AddTransient, except it provides a HttpClient from the HttpClientFactory
-        // See https://docs.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/use-httpclientfactory-to-implement-resilient-http-requests
-        services.AddHttpClient<ICoreApiHandler, CoreApiHandler>()
-            .UseHttpClientMetrics()
-            .ConfigurePrimaryHttpMessageHandler(serviceProvider => ConfigureHttpClientHandler(
-                serviceProvider,
-                "DisableCoreApiHttpsCertificateChecks",
-                "CoreApiHttpProxyAddress"
-            ));
-        services.AddHttpClient<ICoreNodeHealthChecker, CoreNodeHealthChecker>()
-            .UseHttpClientMetrics()
-            .ConfigurePrimaryHttpMessageHandler(serviceProvider => ConfigureHttpClientHandler(
-                serviceProvider,
-                "DisableCoreApiHttpsCertificateChecks",
-                "CoreApiHttpProxyAddress"
-            ));
     }
 
     private void AddReadOnlyDatabaseContext(HostBuilderContext hostContext, IServiceCollection services)
@@ -175,32 +132,5 @@ public class DefaultKernel
                 o => o.NonBrokenUseNodaTime()
             );
         });
-    }
-
-    private HttpClientHandler ConfigureHttpClientHandler(
-        IServiceProvider serviceProvider,
-        string disableApiChecksConfigParameterName,
-        string httpProxyAddressConfigParameterName
-    )
-    {
-        var httpClientHandler = new HttpClientHandler();
-
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var disableCertificateChecks = configuration.GetValue<bool>(disableApiChecksConfigParameterName);
-        var httpProxyAddress = configuration.GetValue<string?>(httpProxyAddressConfigParameterName);
-
-        if (disableCertificateChecks)
-        {
-            httpClientHandler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
-        }
-
-        if (!string.IsNullOrWhiteSpace(httpProxyAddress))
-        {
-            httpClientHandler.Proxy = new WebProxy(httpProxyAddress);
-        }
-
-        httpClientHandler.AutomaticDecompression = DecompressionMethods.All;
-
-        return httpClientHandler;
     }
 }
