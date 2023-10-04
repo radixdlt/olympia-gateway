@@ -79,7 +79,6 @@ public class TransactionController : ControllerBase
     private readonly IValidations _validations;
     private readonly ILedgerStateQuerier _ledgerStateQuerier;
     private readonly ITransactionQuerier _transactionQuerier;
-    private readonly IConstructionAndSubmissionService _constructionAndSubmissionService;
     private readonly INetworkConfigurationProvider _networkConfigurationProvider;
     private readonly IGatewayApiConfiguration _gatewayApiConfiguration;
 
@@ -87,7 +86,6 @@ public class TransactionController : ControllerBase
         IValidations validations,
         ILedgerStateQuerier ledgerStateQuerier,
         ITransactionQuerier transactionQuerier,
-        IConstructionAndSubmissionService constructionAndSubmissionService,
         INetworkConfigurationProvider networkConfigurationProvider,
         IGatewayApiConfiguration gatewayApiConfiguration
     )
@@ -95,7 +93,6 @@ public class TransactionController : ControllerBase
         _validations = validations;
         _ledgerStateQuerier = ledgerStateQuerier;
         _transactionQuerier = transactionQuerier;
-        _constructionAndSubmissionService = constructionAndSubmissionService;
         _networkConfigurationProvider = networkConfigurationProvider;
         _gatewayApiConfiguration = gatewayApiConfiguration;
     }
@@ -167,25 +164,20 @@ public class TransactionController : ControllerBase
     }
 
     [HttpPost("build")]
-    public async Task<TransactionBuildResponse> BuildTransaction(TransactionBuildRequest request)
+    public Task<TransactionBuildResponse> BuildTransaction(TransactionBuildRequest request)
     {
-        var ledgerState = await _ledgerStateQuerier.GetValidLedgerStateForConstructionRequest(request.NetworkIdentifier, request.AtStateIdentifier);
-        return new TransactionBuildResponse(
-            await _constructionAndSubmissionService.HandleBuildRequest(request, ledgerState)
-        );
+        throw InvalidRequestException.FromOtherError("Olympia Network has been decommissioned.", "TX build attempt");
     }
 
     [HttpPost("finalize")]
-    public async Task<TransactionFinalizeResponse> FinalizeTransaction(TransactionFinalizeRequest request)
+    public Task<TransactionFinalizeResponse> FinalizeTransaction(TransactionFinalizeRequest request)
     {
-        _ledgerStateQuerier.AssertMatchingNetwork(request.NetworkIdentifier);
-        return await _constructionAndSubmissionService.HandleFinalizeRequest(request);
+        throw InvalidRequestException.FromOtherError("Olympia Network has been decommissioned.", "TX finalize attempt");
     }
 
     [HttpPost("submit")]
-    public async Task<TransactionSubmitResponse> SubmitTransaction(TransactionSubmitRequest request)
+    public Task<TransactionSubmitResponse> SubmitTransaction(TransactionSubmitRequest request)
     {
-        _ledgerStateQuerier.AssertMatchingNetwork(request.NetworkIdentifier);
-        return await _constructionAndSubmissionService.HandleSubmitRequest(request);
+        throw InvalidRequestException.FromOtherError("Olympia Network has been decommissioned.", "TX submit attempt");
     }
 }
