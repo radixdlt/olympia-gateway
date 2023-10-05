@@ -95,8 +95,7 @@ jobs:
           parse-json-secrets: true
       # This is version v2.1.0
       # https://github.com/docker/login-action/releases/tag/v2.1.0
-      - if: inputs.enable_dockerhub == 'true'
-        name: Login to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
         with:
           username: ${{env.DOCKERHUB_USERNAME}}
