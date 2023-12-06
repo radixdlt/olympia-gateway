@@ -38,7 +38,7 @@ jobs:
       gateway-api-tag: ${{ steps.setup_tags.outputs.gateway-api-tag }}
     steps:
       - name: Dump context
-        uses: crazy-max/ghaction-dump-context@v1
+        uses: RDXWorks-actions/ghaction-dump-context@master
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
@@ -69,7 +69,7 @@ jobs:
             ${{ steps.setup_tags.outputs.data_aggregator_tags }}
           push: true
           context: ./
-             
+
       - name: Docker build and push Gateway API
         uses: docker/build-push-action@v2
         with:
@@ -83,12 +83,12 @@ jobs:
     if: "${{ github.event_name != 'pull_request' }}"
     runs-on: ubuntu-latest
     environment: release
-    outputs:  
+    outputs:
       data-aggregator-tag: ${{ steps.setup_tags.outputs.data-aggregator-tag}}
       gateway-api-tag: ${{ steps.setup_tags.outputs.gateway-api-tag}}
     steps:
       - name: Dump context
-        uses: crazy-max/ghaction-dump-context@v1
+        uses: RDXWorks-actions/ghaction-dump-context@master
       - uses: actions/checkout@v2
         if: github.event_name == 'pull_request'
         with:
@@ -127,7 +127,7 @@ jobs:
             ${{ steps.setup_tags.outputs.data_aggregator_tags }}
           push: true
           context: ./
-             
+
       - name: Docker build and push Gateway API
         uses: docker/build-push-action@v2
         with:
@@ -164,7 +164,7 @@ jobs:
                     "gateway_api_image_tag": "${{ needs.publish-docker-pr.outputs.gateway-api-tag }}"
                 }
             }'
-    
+
   dispatch-deployment-events:
     runs-on: ubuntu-latest
     needs: publish-docker
@@ -178,7 +178,7 @@ jobs:
                     echo "EVENT_TYPE=ng_stokenet" >> $GITHUB_ENV
                 ;;
                 push)
-                    
+
                     echo "NAMESPACE=sandpitnet" >> $GITHUB_ENV
                     echo "EVENT_TYPE=ng_dev" >> $GITHUB_ENV
                 ;;
@@ -201,4 +201,3 @@ jobs:
                     "gateway_api_image_tag": "${{ needs.publish-docker.outputs.gateway-api-tag }}"
                 }
             }'
- 

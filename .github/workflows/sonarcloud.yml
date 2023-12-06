@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: SonarScanner for .NET 6
-        uses: highbyte/sonarscan-dotnet@v2.1.2
+        uses: RDXWorks-actions/sonarscan-dotnet@master
         with:
           sonarProjectKey: radixdlt_radixdlt-network-gateway
           sonarProjectName: radixdlt-network-gateway
