@@ -21,13 +21,13 @@ jobs:
           dotnet publish --runtime linux-x64 --configuration Release --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false --output ./output
           cd ../GatewayAPI
           dotnet publish --runtime linux-x64 --configuration Release --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false --output ./output
-          cd ../..          
-          
+          cd ../..
+
           zip -r data-aggregator.zip src/DataAggregator/output/
           zip -r gateway-api.zip src/GatewayAPI/output/
       - name: Get release
         id: get_release
-        uses: bruceadams/get-release@v1.2.2
+        uses: RDXWorks-actions/get-release@main
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Upload DataAggreagtor zip
@@ -49,4 +49,3 @@ jobs:
           asset_name: gateway-api-${{ github.event.release.tag_name }}.zip
           asset_content_type: application/zip
 
-  
