@@ -9,9 +9,9 @@ jobs:
       matrix:
         dotnet-version: ['6.0.x']
     steps:
-      - uses: actions/checkout@v2
+      - uses: RDXWorks-actions/checkout@main
       - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
-        uses: actions/setup-dotnet@v1.8.2
+        uses: RDXWorks-actions/setup-dotnet@main
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
           include-prerelease: true
@@ -31,7 +31,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Upload DataAggreagtor zip
-        uses: actions/upload-release-asset@v1
+        uses: RDXWorks-actions/upload-release-asset@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -40,7 +40,7 @@ jobs:
           asset_name: data-aggregator-${{ github.event.release.tag_name }}.zip
           asset_content_type: application/zip
       - name: Upload GatewayAPI zip
-        uses: actions/upload-release-asset@v1
+        uses: RDXWorks-actions/upload-release-asset@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
