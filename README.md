@@ -1,5 +1,11 @@
-# RadixDLT Network Gateway
+# RadixDLT Olympia Network Gateway
 
+> [!CAUTION]
+> This is **Olympia** network compatible network gateway. RadixDLT currently runs babylon compatible network and this network gateway is **NOT** compatible with it.
+> 
+> Network Gateway compatible with current network is available here https://github.com/radixdlt/babylon-gateway
+
+#
 This system is designed to be the Radix-run publicly exposed gateway into the Olympia Radix network, and replaces the archive module which previously ran on-node.
 
 The system is in two main parts:
