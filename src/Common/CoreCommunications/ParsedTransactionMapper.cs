@@ -165,7 +165,7 @@ public class ParsedTransactionMapper<T> : IParsedTransactionMapper
         }
 
         // We always use the top of the known ledger for this, as any estimates should be as present as possible
-        var stateVersionToUse = (await _dbContext.GetTopLedgerTransaction().SingleAsync(token)).ResultantStateVersion;
+        var stateVersionToUse = (await _dbContext.GetTopLedgerTransaction().FirstAsync(token)).ResultantStateVersion;
 
         // We use ValidatorStakeHistoryAtVersionForAnyValidator and filter because the query is already hand-crafted
         // to be performant.
